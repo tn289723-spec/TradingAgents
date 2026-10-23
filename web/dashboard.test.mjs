@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { parseProjection, validateProjection, ProjectionError } from "./dashboard.mjs";
+import { parseProjection, validateProjection, ProjectionError, mountDashboard } from "./dashboard.mjs";
 
 const base = {
   projection_version: "dashboard-projection-v1",
@@ -55,6 +55,10 @@ test("reject unknown trend, malformed date/time, invalid scores", () => {
   rejects({ trend_state: "UNKNOWN" });
   rejects({ trade_date: "2026-02-30" });
   rejects({ generated_at: "2026-10-23T18:01:00" });
+  rejects({ generated_at: "2026-02-30T18:01:00+08:00" });
+  rejects({ generated_at: "2026-10-23T25:01:00+08:00" });
+  rejects({ generated_at: "2026-10-23T18:01:60+08:00" });
+  rejects({ generated_at: "2026-10-23T18:01:00+24:00" });
   rejects({ directional_score: 101 });
   rejects({ confidence: -1 });
   rejects({ score_slope_5d: Infinity });
@@ -81,4 +85,39 @@ test("mobile UI contains required panels and uses textContent only", () => {
   assert.doesNotMatch(js, /innerHTML|eval\s*\(/);
   assert.doesNotMatch(html, /<script[^>]*>\s*\{/);
   assert.doesNotMatch(html, /"directional_score"\s*:/);
+});
+
+
+test("latest file selection wins over delayed initial fetch and earlier imports", async () => {
+  const nodes = new Map();
+  const getNode = (id) => {
+    if (!nodes.has(id)) nodes.set(id, { hidden: false, dataset: {}, textContent: "", files: null, addEventListener(_type, fn) { this.change = fn; } });
+    return nodes.get(id);
+  };
+  const previousDocument = globalThis.document;
+  const previousFetch = globalThis.fetch;
+  let releaseFetch;
+  globalThis.document = { getElementById: getNode };
+  globalThis.fetch = () => new Promise(resolve => { releaseFetch = resolve; });
+  try {
+    const initial = mountDashboard();
+    const input = getNode("projection-file");
+    let releaseFirst;
+    input.files = [{ size: 300, text: () => new Promise(resolve => { releaseFirst = resolve; }) }];
+    const first = input.change();
+    input.files = [{ size: 300, text: async () => JSON.stringify(changed({ directional_score: 51 })) }];
+    await input.change();
+    assert.equal(getNode("score").textContent, "51");
+    releaseFirst(JSON.stringify(changed({ directional_score: 72 })));
+    await first;
+    releaseFetch({ ok: true, text: async () => JSON.stringify(changed({ directional_score: 99 })) });
+    await initial;
+    assert.equal(getNode("score").textContent, "51");
+    assert.equal(getNode("data").hidden, false);
+  } finally {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
 });
