@@ -132,3 +132,13 @@ Keep the Issue #7/PR checkpoint as the authoritative run/SHA ledger.
 
 ## Rule
 Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion until the V0.1 Truth/State historical replay path is complete.
+
+## 2026-10-23 — Issue #9 atomic batch A: prospective PIT capture contract
+- Main base: `398e326dd75b1e147c6986941d820b858a718367` (Issue #7 / PR #8 complete; 105/105 on both Python versions; previous gates not rerun).
+- Branch: `codex/v0.1-pit-archive-contract`.
+- Added versioned, hash-verified, append-only captured corporate-action records and explicit COMPLETE/PARTIAL/UNKNOWN coverage attestation.
+- Independent trusted attestation callback is mandatory: no automatic trust of latest-only empty feed or self-declared historical completeness.
+- Verifier checks window continuity, board/symbol, cutoff, exact record membership, linear revisions, late observations, conflicts, and immutable hashes.
+- Offline tests use synthetic observations; they do NOT establish live historical PIT completeness.
+- Next: verify this SHA once in Branch CI, then PR gate; integrate the trusted coverage source into historical ingestion only after independent attestation mechanism is established. Build DailyReport and mobile web after the Truth gate.
+- Retry ledger: new archive contract point starts at 0 failures; previous Issue #7 failures remain recorded in Issue #7, no equivalent gate reruns.
