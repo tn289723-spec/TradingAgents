@@ -11,6 +11,15 @@ def _require_aware(name: str, value: datetime | None) -> None:
         raise ValueError(f"{name} must be timezone-aware")
 
 
+def _require_sha256_hex(name: str, value: str) -> None:
+    if len(value) != 64:
+        raise ValueError(f"{name} must be a SHA-256 hex digest")
+    try:
+        int(value, 16)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a SHA-256 hex digest") from exc
+
+
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -117,6 +126,7 @@ class PriceSeries(StrictModel):
     price_basis: PriceBasis
     adjustment_method: str | None = None
     adjustment_version: str | None = None
+    adjustment_as_of: date | None = None
     bars: tuple[PriceBar, ...]
 
     @model_validator(mode="after")
@@ -138,10 +148,17 @@ class PriceSeries(StrictModel):
             if bar.adjustment_version != self.adjustment_version:
                 raise ValueError("price series cannot mix adjustment versions")
         if self.price_basis is PriceBasis.RAW:
-            if self.adjustment_method is not None or self.adjustment_version is not None:
+            if (
+                self.adjustment_method is not None
+                or self.adjustment_version is not None
+                or self.adjustment_as_of is not None
+            ):
                 raise ValueError("RAW price series cannot declare adjustment metadata")
-        elif not self.adjustment_method:
-            raise ValueError("ADJUSTED price series require adjustment_method")
+        else:
+            if not self.adjustment_method:
+                raise ValueError("ADJUSTED price series require adjustment_method")
+            if self.adjustment_as_of is None:
+                raise ValueError("ADJUSTED price series require adjustment_as_of")
         return self
 
 
@@ -197,8 +214,8 @@ class TruthSnapshot(StrictModel):
     @model_validator(mode="after")
     def cutoff_is_aware(self) -> "TruthSnapshot":
         _require_aware("analysis_cutoff", self.analysis_cutoff)
-        if len(self.content_hash) != 64 or len(self.config_hash) != 64:
-            raise ValueError("truth snapshot hashes must be SHA-256 hex digests")
+        _require_sha256_hex("content_hash", self.content_hash)
+        _require_sha256_hex("config_hash", self.config_hash)
         return self
 
 

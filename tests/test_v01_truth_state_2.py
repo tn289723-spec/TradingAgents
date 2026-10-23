@@ -134,10 +134,11 @@ def test_corporate_action_dual_series_fixture():
         observed_at=datetime(2026, 10, 20, 8, tzinfo=UTC),
     )
 
-    adjusted = apply_back_adjustments(raw, (action,))
+    adjusted = apply_back_adjustments(raw, (action,), as_of=date(2026, 10, 23))
     assert raw.price_basis is PriceBasis.RAW
     assert adjusted.price_basis is PriceBasis.ADJUSTED
     assert adjusted.adjustment_method == BACK_ADJUSTMENT_METHOD
+    assert adjusted.adjustment_as_of == date(2026, 10, 23)
 
     for actual, expected in zip(adjusted.bars, data["expected"], strict=True):
         assert actual.trade_date == date.fromisoformat(expected["trade_date"])
@@ -274,3 +275,36 @@ def test_twse_latest_adapter_refuses_historical_replay_after_cutoff():
     )
     with pytest.raises(ValueError, match="cannot reconstruct"):
         adapter.fetch(_request())
+
+
+def test_known_future_corporate_action_does_not_adjust_before_effective_date():
+    raw = PriceSeries(
+        symbol="9999",
+        price_basis=PriceBasis.RAW,
+        bars=(
+            PriceBar(
+                symbol="9999",
+                trade_date=date(2026, 10, 23),
+                open=100,
+                high=110,
+                low=90,
+                close=100,
+                volume=1000,
+                price_basis=PriceBasis.RAW,
+            ),
+        ),
+    )
+    future = CorporateAction(
+        action_id="future-split",
+        symbol="9999",
+        action_type=CorporateActionType.SPLIT,
+        event_date=date(2026, 10, 24),
+        adjustment_factor=0.5,
+        adjustment_method=BACK_ADJUSTMENT_METHOD,
+        source="TWSE",
+        published_at=datetime(2026, 10, 20, 8, tzinfo=UTC),
+        observed_at=datetime(2026, 10, 20, 8, tzinfo=UTC),
+    )
+    adjusted = apply_back_adjustments(raw, (future,), as_of=date(2026, 10, 23))
+    assert adjusted.bars[0].close == 100
+    assert adjusted.adjustment_as_of == date(2026, 10, 23)
