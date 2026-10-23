@@ -5,10 +5,14 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import Any, Mapping, Protocol, runtime_checkable
 
 from tradingagents_tw.contracts import TruthSnapshot
-from .identity import derive_truth_content_hash
+from .identity import (
+    canonical_identity_json,
+    derive_config_hash,
+    derive_truth_content_hash,
+)
 
 
 class SnapshotStoreError(RuntimeError):
@@ -29,10 +33,18 @@ class SnapshotIntegrityError(SnapshotStoreError):
 
 @runtime_checkable
 class TruthSnapshotStore(Protocol):
-    def put(self, snapshot: TruthSnapshot) -> None:
+    def put(
+        self,
+        snapshot: TruthSnapshot,
+        *,
+        config: Mapping[str, Any] | None = None,
+    ) -> None:
         ...
 
     def replay(self, snapshot_id: str) -> TruthSnapshot:
+        ...
+
+    def replay_config(self, config_hash: str) -> dict[str, Any]:
         ...
 
 
@@ -61,20 +73,31 @@ def _canonical_json(value: object) -> str:
     )
 
 
+def _require_sha256_hex(value: str) -> None:
+    if len(value) != 64:
+        raise SnapshotIntegrityError("hash key must be a SHA-256 hex digest")
+    try:
+        int(value, 16)
+    except ValueError as exc:
+        raise SnapshotIntegrityError("hash key must be a SHA-256 hex digest") from exc
+
+
 class FileTruthSnapshotStore:
-    """Immutable filesystem reference store.
+    """Immutable content-addressed Truth + configuration store.
 
     Objects are keyed by TruthSnapshot.content_hash. Snapshot IDs are immutable
-    refs that point to those content-addressed objects. Replay never contacts a
-    provider.
+    refs. Deterministic configuration is persisted separately by config_hash so
+    a replay does not depend on today's code defaults or live providers.
     """
 
     def __init__(self, root: str | Path) -> None:
         self.root = Path(root)
         self.objects = self.root / "objects"
         self.refs = self.root / "refs"
+        self.configs = self.root / "configs"
         self.objects.mkdir(parents=True, exist_ok=True)
         self.refs.mkdir(parents=True, exist_ok=True)
+        self.configs.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
     def _ref_key(snapshot_id: str) -> str:
@@ -86,7 +109,12 @@ class FileTruthSnapshotStore:
         return self.refs / f"{self._ref_key(snapshot_id)}.json"
 
     def _object_path(self, content_hash: str) -> Path:
+        _require_sha256_hex(content_hash)
         return self.objects / f"{content_hash}.json"
+
+    def _config_path(self, config_hash: str) -> Path:
+        _require_sha256_hex(config_hash)
+        return self.configs / f"{config_hash}.json"
 
     @staticmethod
     def _write_atomic(path: Path, text: str) -> None:
@@ -102,7 +130,40 @@ class FileTruthSnapshotStore:
             if os.path.exists(temp_name):
                 os.unlink(temp_name)
 
-    def put(self, snapshot: TruthSnapshot) -> None:
+    def _ensure_config(
+        self,
+        *,
+        config_hash: str,
+        config: Mapping[str, Any] | None,
+    ) -> None:
+        config_path = self._config_path(config_hash)
+        if config is None:
+            if not config_path.exists():
+                raise SnapshotStoreError(
+                    "config payload is required before a snapshot can be persisted"
+                )
+            self.replay_config(config_hash)
+            return
+
+        computed = derive_config_hash(config)
+        if computed != config_hash:
+            raise SnapshotIntegrityError(
+                f"config hash mismatch: expected {config_hash}, got {computed}"
+            )
+        canonical = canonical_identity_json(dict(config))
+        if config_path.exists():
+            existing = json.loads(config_path.read_text(encoding="utf-8"))
+            if derive_config_hash(existing) != config_hash:
+                raise SnapshotIntegrityError("persisted config failed integrity check")
+            return
+        self._write_atomic(config_path, canonical)
+
+    def put(
+        self,
+        snapshot: TruthSnapshot,
+        *,
+        config: Mapping[str, Any] | None = None,
+    ) -> None:
         verify_snapshot_integrity(snapshot)
 
         ref_path = self._ref_path(snapshot.snapshot_id)
@@ -114,10 +175,13 @@ class FileTruthSnapshotStore:
                 raise SnapshotImmutableError(
                     f"snapshot_id {snapshot.snapshot_id!r} already points to different content"
                 )
+            self._ensure_config(config_hash=snapshot.config_hash, config=config)
             existing = self.replay(snapshot.snapshot_id)
             if existing.content_hash != snapshot.content_hash:
                 raise SnapshotIntegrityError("existing snapshot ref failed integrity check")
             return
+
+        self._ensure_config(config_hash=snapshot.config_hash, config=config)
 
         object_path = self._object_path(snapshot.content_hash)
         object_payload = snapshot.model_dump(mode="json", exclude={"snapshot_id"})
@@ -137,6 +201,17 @@ class FileTruthSnapshotStore:
             "content_hash": snapshot.content_hash,
         }
         self._write_atomic(ref_path, _canonical_json(ref_payload))
+
+    def replay_config(self, config_hash: str) -> dict[str, Any]:
+        config_path = self._config_path(config_hash)
+        if not config_path.exists():
+            raise SnapshotIntegrityError("snapshot config is missing")
+        value = json.loads(config_path.read_text(encoding="utf-8"))
+        if not isinstance(value, dict):
+            raise SnapshotIntegrityError("persisted config must be a JSON object")
+        if derive_config_hash(value) != config_hash:
+            raise SnapshotIntegrityError("persisted config failed integrity check")
+        return value
 
     def replay(self, snapshot_id: str) -> TruthSnapshot:
         ref_path = self._ref_path(snapshot_id)
@@ -158,4 +233,5 @@ class FileTruthSnapshotStore:
         if snapshot.content_hash != content_hash:
             raise SnapshotIntegrityError("snapshot ref/object hash mismatch")
         verify_snapshot_integrity(snapshot)
+        self.replay_config(snapshot.config_hash)
         return snapshot

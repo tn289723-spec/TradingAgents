@@ -27,6 +27,7 @@ from tradingagents_tw.truth import (
     FileTruthSnapshotStore,
     IngestionViolation,
     SnapshotImmutableError,
+    SnapshotIntegrityError,
     assess_evidence,
     ingest_post_market,
     replay_truth_snapshot,
@@ -108,6 +109,7 @@ def test_ingestion_persists_verified_snapshot_and_replay_never_refetches(tmp_pat
     )
     assert provider.calls == 1
     assert replayed == snapshot
+    assert store.replay_config(snapshot.config_hash) == {"truth_version": "v0.1"}
 
 
 def test_snapshot_store_is_immutable_by_snapshot_id(tmp_path):
@@ -180,8 +182,6 @@ def test_snapshot_store_detects_object_tampering(tmp_path):
     payload = json.loads(object_path.read_text(encoding="utf-8"))
     payload["symbol"] = "9999"
     object_path.write_text(json.dumps(payload), encoding="utf-8")
-
-    from tradingagents_tw.truth import SnapshotIntegrityError
 
     with pytest.raises(SnapshotIntegrityError):
         replay_truth_snapshot(store=store, snapshot_id="tamper-test")
@@ -338,3 +338,26 @@ def test_state_refuses_raw_price_series():
     )
     with pytest.raises(ValueError, match="require ADJUSTED"):
         derive_trend_inputs(raw, rs_20d=0.2)
+
+
+def test_snapshot_store_detects_config_tampering(tmp_path):
+    provider = FakeProvider()
+    store = FileTruthSnapshotStore(tmp_path)
+    snapshot = ingest_post_market(
+        provider=provider,
+        request=_request(),
+        assessment=assess_evidence(
+            coverage=100,
+            freshness="PASS",
+            provenance="PASS",
+        ),
+        snapshot_id="config-tamper",
+        store=store,
+        config={"version": 1, "cutoff_policy": "post-market"},
+    )
+
+    config_path = tmp_path / "configs" / f"{snapshot.config_hash}.json"
+    config_path.write_text('{"version":2}', encoding="utf-8")
+
+    with pytest.raises(SnapshotIntegrityError, match="config failed integrity"):
+        replay_truth_snapshot(store=store, snapshot_id="config-tamper")

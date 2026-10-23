@@ -2,6 +2,7 @@ from .corporate_actions import BACK_ADJUSTMENT_METHOD, apply_back_adjustments
 from .gate import assess_evidence
 from .identity import (
     canonical_evidence,
+    canonical_identity_json,
     derive_config_hash,
     derive_truth_content_hash,
 )

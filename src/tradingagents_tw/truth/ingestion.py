@@ -53,6 +53,7 @@ def ingest_post_market(
         raise IngestionViolation("empty provider output cannot produce a PASS snapshot")
 
     verified = promote_validated_evidence(validated)
+    config_payload = dict(config or {})
     snapshot = build_truth_snapshot(
         snapshot_id=snapshot_id,
         symbol=request.symbol,
@@ -60,9 +61,9 @@ def ingest_post_market(
         analysis_cutoff=request.analysis_cutoff,
         evidence=verified,
         assessment=assessment,
-        config=config,
+        config=config_payload,
     )
-    store.put(snapshot)
+    store.put(snapshot, config=config_payload)
     return snapshot
 
 
