@@ -34,6 +34,11 @@ class TrendState(str, Enum):
     STRONG_DOWNTREND = "STRONG_DOWNTREND"
 
 
+class PriceBasis(str, Enum):
+    RAW = "RAW"
+    ADJUSTED = "ADJUSTED"
+
+
 class Evidence(StrictModel):
     evidence_id: str
     schema_version: str = "1.0"
@@ -68,6 +73,66 @@ class EvidenceAssessment(StrictModel):
     unresolved_conflicts: tuple[str, ...] = ()
     decision_gate: GateStatus
     gate_reasons: tuple[str, ...] = ()
+
+
+class PriceBar(StrictModel):
+    symbol: str
+    trade_date: date
+    open: float = Field(gt=0)
+    high: float = Field(gt=0)
+    low: float = Field(gt=0)
+    close: float = Field(gt=0)
+    volume: float = Field(ge=0)
+    price_basis: PriceBasis
+    adjustment_method: str | None = None
+    adjustment_version: str | None = None
+
+    @model_validator(mode="after")
+    def valid_price_basis(self) -> "PriceBar":
+        if self.low > min(self.open, self.close, self.high):
+            raise ValueError("low cannot exceed OHLC values")
+        if self.high < max(self.open, self.close, self.low):
+            raise ValueError("high cannot be below OHLC values")
+        if self.price_basis is PriceBasis.RAW:
+            if self.adjustment_method is not None or self.adjustment_version is not None:
+                raise ValueError("RAW prices cannot declare adjustment metadata")
+        else:
+            if not self.adjustment_method:
+                raise ValueError("ADJUSTED prices require adjustment_method")
+        return self
+
+
+class PriceSeries(StrictModel):
+    symbol: str
+    price_basis: PriceBasis
+    adjustment_method: str | None = None
+    adjustment_version: str | None = None
+    bars: tuple[PriceBar, ...]
+
+    @model_validator(mode="after")
+    def consistent_basis(self) -> "PriceSeries":
+        if not self.bars:
+            raise ValueError("price series cannot be empty")
+        dates = [bar.trade_date for bar in self.bars]
+        if dates != sorted(dates):
+            raise ValueError("price bars must be ordered by trade_date")
+        if len(set(dates)) != len(dates):
+            raise ValueError("duplicate trade_date in price series")
+        for bar in self.bars:
+            if bar.symbol != self.symbol:
+                raise ValueError("price series cannot mix symbols")
+            if bar.price_basis is not self.price_basis:
+                raise ValueError("RAW and ADJUSTED price bases cannot be mixed")
+            if bar.adjustment_method != self.adjustment_method:
+                raise ValueError("price series cannot mix adjustment methods")
+            if bar.adjustment_version != self.adjustment_version:
+                raise ValueError("price series cannot mix adjustment versions")
+        if self.price_basis is PriceBasis.RAW:
+            if self.adjustment_method is not None or self.adjustment_version is not None:
+                raise ValueError("RAW price series cannot declare adjustment metadata")
+        elif not self.adjustment_method:
+            raise ValueError("ADJUSTED price series require adjustment_method")
+        return self
 
 
 class TrendAssessment(StrictModel):
