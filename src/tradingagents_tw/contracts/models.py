@@ -6,6 +6,11 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
+def _require_aware(name: str, value: datetime | None) -> None:
+    if value is not None and value.utcoffset() is None:
+        raise ValueError(f"{name} must be timezone-aware")
+
+
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -34,6 +39,11 @@ class TrendState(str, Enum):
     STRONG_DOWNTREND = "STRONG_DOWNTREND"
 
 
+class PriceBasis(str, Enum):
+    RAW = "RAW"
+    ADJUSTED = "ADJUSTED"
+
+
 class Evidence(StrictModel):
     evidence_id: str
     schema_version: str = "1.0"
@@ -53,10 +63,15 @@ class Evidence(StrictModel):
 
     @model_validator(mode="after")
     def chronology_is_possible(self) -> "Evidence":
+        _require_aware("event_time", self.event_time)
+        _require_aware("published_at", self.published_at)
+        _require_aware("observed_at", self.observed_at)
+        _require_aware("effective_at", self.effective_at)
         if self.observed_at < self.published_at:
             raise ValueError("observed_at cannot precede published_at")
-        if self.effective_at and self.effective_at > self.observed_at:
-            raise ValueError("effective_at cannot be after observed_at")
+        # event_time/effective_at may be in the future if the market learned
+        # about a scheduled event before it occurs. Availability is governed
+        # by published_at/observed_at, not effective_at.
         return self
 
 
@@ -68,6 +83,66 @@ class EvidenceAssessment(StrictModel):
     unresolved_conflicts: tuple[str, ...] = ()
     decision_gate: GateStatus
     gate_reasons: tuple[str, ...] = ()
+
+
+class PriceBar(StrictModel):
+    symbol: str
+    trade_date: date
+    open: float = Field(gt=0)
+    high: float = Field(gt=0)
+    low: float = Field(gt=0)
+    close: float = Field(gt=0)
+    volume: float = Field(ge=0)
+    price_basis: PriceBasis
+    adjustment_method: str | None = None
+    adjustment_version: str | None = None
+
+    @model_validator(mode="after")
+    def valid_price_basis(self) -> "PriceBar":
+        if self.low > min(self.open, self.close, self.high):
+            raise ValueError("low cannot exceed OHLC values")
+        if self.high < max(self.open, self.close, self.low):
+            raise ValueError("high cannot be below OHLC values")
+        if self.price_basis is PriceBasis.RAW:
+            if self.adjustment_method is not None or self.adjustment_version is not None:
+                raise ValueError("RAW prices cannot declare adjustment metadata")
+        else:
+            if not self.adjustment_method:
+                raise ValueError("ADJUSTED prices require adjustment_method")
+        return self
+
+
+class PriceSeries(StrictModel):
+    symbol: str
+    price_basis: PriceBasis
+    adjustment_method: str | None = None
+    adjustment_version: str | None = None
+    bars: tuple[PriceBar, ...]
+
+    @model_validator(mode="after")
+    def consistent_basis(self) -> "PriceSeries":
+        if not self.bars:
+            raise ValueError("price series cannot be empty")
+        dates = [bar.trade_date for bar in self.bars]
+        if dates != sorted(dates):
+            raise ValueError("price bars must be ordered by trade_date")
+        if len(set(dates)) != len(dates):
+            raise ValueError("duplicate trade_date in price series")
+        for bar in self.bars:
+            if bar.symbol != self.symbol:
+                raise ValueError("price series cannot mix symbols")
+            if bar.price_basis is not self.price_basis:
+                raise ValueError("RAW and ADJUSTED price bases cannot be mixed")
+            if bar.adjustment_method != self.adjustment_method:
+                raise ValueError("price series cannot mix adjustment methods")
+            if bar.adjustment_version != self.adjustment_version:
+                raise ValueError("price series cannot mix adjustment versions")
+        if self.price_basis is PriceBasis.RAW:
+            if self.adjustment_method is not None or self.adjustment_version is not None:
+                raise ValueError("RAW price series cannot declare adjustment metadata")
+        elif not self.adjustment_method:
+            raise ValueError("ADJUSTED price series require adjustment_method")
+        return self
 
 
 class TrendAssessment(StrictModel):
@@ -117,6 +192,11 @@ class TruthSnapshot(StrictModel):
     assessment: EvidenceAssessment
     schema_version: str = "1.0"
 
+    @model_validator(mode="after")
+    def cutoff_is_aware(self) -> "TruthSnapshot":
+        _require_aware("analysis_cutoff", self.analysis_cutoff)
+        return self
+
 
 class CorporateActionType(str, Enum):
     DIVIDEND = "DIVIDEND"
@@ -133,7 +213,7 @@ class CorporateAction(StrictModel):
     symbol: str
     action_type: CorporateActionType
     event_date: date
-    adjustment_factor: float | None = None
+    adjustment_factor: float | None = Field(default=None, gt=0)
     adjustment_method: str
     source: str
     published_at: datetime
@@ -141,6 +221,8 @@ class CorporateAction(StrictModel):
 
     @model_validator(mode="after")
     def chronology_is_possible(self) -> "CorporateAction":
+        _require_aware("published_at", self.published_at)
+        _require_aware("observed_at", self.observed_at)
         if self.observed_at < self.published_at:
             raise ValueError("observed_at cannot precede published_at")
         return self
@@ -174,6 +256,11 @@ class DailyReport(StrictModel):
     state_engine_version: str
     config_hash: str
     generated_at: datetime
+
+    @model_validator(mode="after")
+    def generated_at_is_aware(self) -> "DailyReport":
+        _require_aware("generated_at", self.generated_at)
+        return self
 
 
 class StateSnapshot(StrictModel):
