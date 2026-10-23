@@ -213,3 +213,14 @@ def test_golden_state_replay_is_exact():
     )
     fixture = Path(__file__).with_name("fixtures") / "golden_state_v0_1.json"
     assert canonical_state_json(state) == fixture.read_text(encoding="utf-8").strip()
+
+
+def test_provider_request_rejects_naive_cutoff():
+    with pytest.raises(ValidationError, match="timezone-aware"):
+        ProviderRequest(
+            symbol="3037",
+            evidence_types=("OHLCV",),
+            start_date=date(2026, 10, 1),
+            end_date=date(2026, 10, 23),
+            analysis_cutoff=datetime(2026, 10, 23, 8),
+        )
