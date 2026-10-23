@@ -124,13 +124,67 @@ def test_snapshot_store_is_immutable_by_snapshot_id(tmp_path):
     )
     store.put(first)
 
-    changed = first.model_copy(
-        update={
-            "content_hash": "b" * 64,
-        }
+    with pytest.raises(SnapshotImmutableError, match="already points to different content"):
+        ingest_post_market(
+            provider=provider,
+            request=_request(),
+            assessment=assessment,
+            snapshot_id="same-id",
+            store=store,
+            config={"version": 2},
+        )
+
+
+def test_snapshot_store_deduplicates_content_across_snapshot_ids(tmp_path):
+    provider = FakeProvider()
+    store = FileTruthSnapshotStore(tmp_path)
+    assessment = assess_evidence(coverage=100, freshness="PASS", provenance="PASS")
+
+    first = ingest_post_market(
+        provider=provider,
+        request=_request(),
+        assessment=assessment,
+        snapshot_id="alias-a",
+        store=store,
+        config={"version": 1},
     )
-    with pytest.raises(Exception):
-        store.put(changed)
+    second = ingest_post_market(
+        provider=provider,
+        request=_request(),
+        assessment=assessment,
+        snapshot_id="alias-b",
+        store=store,
+        config={"version": 1},
+    )
+
+    assert first.content_hash == second.content_hash
+    assert len(list((tmp_path / "objects").glob("*.json"))) == 1
+    assert replay_truth_snapshot(store=store, snapshot_id="alias-a").content_hash == first.content_hash
+    assert replay_truth_snapshot(store=store, snapshot_id="alias-b").content_hash == first.content_hash
+
+
+def test_snapshot_store_detects_object_tampering(tmp_path):
+    provider = FakeProvider()
+    store = FileTruthSnapshotStore(tmp_path)
+    assessment = assess_evidence(coverage=100, freshness="PASS", provenance="PASS")
+    snapshot = ingest_post_market(
+        provider=provider,
+        request=_request(),
+        assessment=assessment,
+        snapshot_id="tamper-test",
+        store=store,
+        config={"version": 1},
+    )
+
+    object_path = tmp_path / "objects" / f"{snapshot.content_hash}.json"
+    payload = json.loads(object_path.read_text(encoding="utf-8"))
+    payload["symbol"] = "9999"
+    object_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    from tradingagents_tw.truth import SnapshotIntegrityError
+
+    with pytest.raises(SnapshotIntegrityError):
+        replay_truth_snapshot(store=store, snapshot_id="tamper-test")
 
 
 def test_empty_provider_output_cannot_create_pass_snapshot(tmp_path):
