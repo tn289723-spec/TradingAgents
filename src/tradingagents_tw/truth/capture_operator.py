@@ -110,7 +110,8 @@ class AppendOnlyPollJournal:
                 <= observation.observed_at <= record.finished_at):
             raise ValueError("poll observation clock mismatch")
 
-    def latest(self) -> PollRecord | None:
+    def validated_records(self) -> list[PollRecord]:
+        """Verify every stored poll, linked predecessor and referenced raw receipt."""
         records = [self.read(path.stem) for path in self.objects.glob("*.json")]
         for record in records:
             self._verify_success_receipt(record)
@@ -121,6 +122,10 @@ class AppendOnlyPollJournal:
                     or record.previous_finished_at != (prior.finished_at if prior else None)
                     or record.previous_outcome != (prior.outcome if prior else None)):
                 raise ValueError("poll chain mismatch or missing predecessor")
+        return records
+
+    def latest(self) -> PollRecord | None:
+        records = self.validated_records()
         return records[-1] if records else None
 
     def append(self, record: PollRecord) -> str:
@@ -142,6 +147,43 @@ class AppendOnlyPollJournal:
             if self.read(record.poll_hash) != record:
                 raise ValueError("immutable poll receipt collision")
         return record.poll_hash
+
+
+def audit_poll_health(root: str | Path, *, as_of: datetime) -> dict[str, object]:
+    """Read-only operational audit, never a PIT publication-coverage attestation.
+
+    Unlike per-poll cadence, this detects a stale *last* observation even when
+    GitHub skipped the next scheduled workflow entirely. Historical gaps/errors
+    remain visible after subsequent successful polls.
+    """
+    if as_of.utcoffset() is None:
+        raise ValueError("audit clock must be timezone-aware")
+    records = AppendOnlyPollJournal(root).validated_records()
+    last = records[-1] if records else None
+    if last is not None and as_of < last.finished_at:
+        raise ValueError("audit clock precedes latest poll")
+    gap_or_failure = any(
+        record.outcome != "SUCCESS" or record.cadence_state == "GAP_OR_FAILURE"
+        for record in records
+    )
+    stale = (last is None or
+             (as_of - last.finished_at).total_seconds() > MAX_POLL_GAP_SECONDS)
+    if last is None:
+        status = "NO_BASELINE"
+    elif gap_or_failure:
+        status = "GAP_OR_FAILURE"
+    elif stale:
+        status = "STALE"
+    else:
+        status = "RECENT_UNATTESTED"
+    return {
+        "status": status,
+        "stale": stale,
+        "historical_gap_or_failure": gap_or_failure,
+        "poll_count": len(records),
+        "last_poll_hash": last.poll_hash if last else None,
+        "coverage": "UNATTESTED",
+    }
 
 
 def capture_poll(
@@ -207,7 +249,13 @@ def main() -> int:
         description="Append-only TWSE prospective poll (not PIT coverage proof)"
     )
     parser.add_argument("--archive-root", required=True, type=Path)
+    parser.add_argument("--audit-only", action="store_true",
+                        help="Read-only freshness/chain audit; never PIT coverage proof")
     args = parser.parse_args()
+    if args.audit_only:
+        result = audit_poll_health(args.archive_root, as_of=datetime.now(timezone.utc))
+        print(json.dumps(result, sort_keys=True))
+        return 0 if result["status"] == "RECENT_UNATTESTED" else 2
     record = capture_poll(args.archive_root)
     print(json.dumps({
         "poll_hash": record.poll_hash, "outcome": record.outcome,

@@ -211,3 +211,10 @@ Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion unti
 - Raw feed receipts remain untrusted prospective observations. Even consecutive successful polls do **not** prove announcement publication/revision completeness, independent attestation or historical PIT. No live data is bundled with the Web.
 - New point validation: one Branch CI on final SHA, then PR CI -> merge -> main CI. Verify first actual scheduled/manual poll separately only if authorized; GitHub Actions write permission and schedule execution are operational prerequisites.
 - Issue #14 Pages/Cloudflare permissions unchanged: no equivalent failed deployment retry. Issue #9 remains open until independently operated attestor and complete trustworthy coverage are available.
+
+## 2026-10-24 — Issue #9 atomic batch I: read-only prospective poll health audit (pending gates)
+- Base main: `98b94d7b3ffb35c3627865b01acaf340c364d779` (PR #18 merged; existing Branch/PR/main CI PASS; do not rerun).
+- Adds deterministic read-only `--audit-only` to the prospective capture operator. It verifies the complete local hash-linked journal and referenced raw receipts, detects skipped polls even without a next scheduled run, and preserves earlier gap/error visibility after later successes.
+- Status `NO_BASELINE`, `STALE`, `GAP_OR_FAILURE`, or `RECENT_UNATTESTED` always includes `coverage=UNATTESTED`; audit cannot establish independent publication/revision completeness.
+- Tests cover missing baseline, stale clock, recovered but historically gapped chain, corrupt/missing raw receipt, invalid clocks and failure receipts.
+- Next: one Branch CI on this new commit; if green, PR CI -> merge -> main CI. Observe first actual scheduled TWSE capture only when it occurs; do not trigger unauthorized/manual duplicate capture. Issue #14 deployment blockers unchanged.

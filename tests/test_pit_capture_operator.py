@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from tradingagents_tw.truth.capture_operator import (
-    AppendOnlyPollJournal, capture_poll,
+    AppendOnlyPollJournal, audit_poll_health, capture_poll,
 )
 
 BASE = datetime(2026, 10, 24, 0, tzinfo=timezone.utc)
@@ -112,3 +112,58 @@ def test_missing_or_tampered_feed_receipt_blocks_success_journal(tmp_path):
     receipt_path.write_text(original.replace('"body_sha256":"', '"body_sha256":"bad'), encoding="utf-8")
     with pytest.raises(ValueError):
         journal.latest()
+
+
+def test_read_only_audit_detects_missing_baseline_and_skipped_next_poll(tmp_path):
+    missing = audit_poll_health(tmp_path, as_of=BASE)
+    assert missing == {
+        "status": "NO_BASELINE", "stale": True,
+        "historical_gap_or_failure": False, "poll_count": 0,
+        "last_poll_hash": None, "coverage": "UNATTESTED",
+    }
+    first = success(tmp_path, BASE)
+    recent = audit_poll_health(tmp_path, as_of=BASE + timedelta(hours=1))
+    assert recent["status"] == "RECENT_UNATTESTED"
+    assert recent["last_poll_hash"] == first.poll_hash
+    assert recent["coverage"] == "UNATTESTED"
+    stale = audit_poll_health(tmp_path, as_of=BASE + timedelta(hours=31))
+    assert stale["status"] == "STALE"
+    assert stale["stale"] is True
+    assert stale["historical_gap_or_failure"] is False
+
+
+def test_audit_keeps_old_gaps_visible_after_new_success(tmp_path):
+    success(tmp_path, BASE)
+    success(tmp_path, BASE + timedelta(hours=32))
+    last = success(tmp_path, BASE + timedelta(hours=56))
+    status = audit_poll_health(tmp_path, as_of=BASE + timedelta(hours=57))
+    assert status["status"] == "GAP_OR_FAILURE"
+    assert status["historical_gap_or_failure"] is True
+    assert status["stale"] is False
+    assert status["poll_count"] == 3
+    assert status["last_poll_hash"] == last.poll_hash
+
+
+def test_audit_fails_closed_on_invalid_clock_or_tampered_feed(tmp_path):
+    first = success(tmp_path, BASE)
+    with pytest.raises(ValueError, match="timezone-aware"):
+        audit_poll_health(tmp_path, as_of=BASE.replace(tzinfo=None))
+    with pytest.raises(ValueError, match="precedes latest"):
+        audit_poll_health(tmp_path, as_of=BASE)
+    receipt_path = tmp_path / "feed-observations" / (first.observation_hash + ".json")
+    receipt_path.unlink()
+    with pytest.raises(FileNotFoundError):
+        audit_poll_health(tmp_path, as_of=BASE + timedelta(hours=1))
+
+
+def test_audit_error_receipt_never_counts_as_healthy(tmp_path):
+    start = BASE
+    failure = capture_poll(
+        tmp_path, fetch_bytes=lambda: b"{}",
+        clock=ticks(start, start + timedelta(seconds=1),
+                    start + timedelta(seconds=2), start + timedelta(seconds=3)),
+    )
+    assert failure.outcome == "ERROR"
+    audit = audit_poll_health(tmp_path, as_of=BASE + timedelta(hours=1))
+    assert audit["status"] == "GAP_OR_FAILURE"
+    assert audit["coverage"] == "UNATTESTED"
