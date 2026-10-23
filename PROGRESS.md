@@ -151,3 +151,14 @@ Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion unti
 - This verifies **who signed** a COMPLETE claim; it does not independently establish that the signer actually captured every historical announcement. No production attestor/key is provisioned.
 - Remaining Issue #9: wire signed archive evidence into historical ingestion and offline replay; keep legacy synthetic golden explicitly marked synthetic. Then DailyReport / mobile Web.
 - Retry ledger: batch B new validation point failure count 0; previous branch/PR/main successful gates must not be rerun.
+
+## 2026-10-24 — Issue #9 atomic batch C: signed PIT ingestion + persisted replay
+- Base main: `ed164eeaabea3b3caffd2779d4babc01dae84050` (PR #11, both Python CI matrices green; no previous gate rerun).
+- Branch: `codex/v0.1-pit-signed-replay`.
+- Added explicit `archive_mode` in persisted historical replay config: `SYNTHETIC_FIXTURE_ONLY` (legacy golden compatibility; not live PIT proof) or `SIGNED_PIT_V1` (out-of-band Ed25519 trust root required).
+- Signed coverage bundle carries immutable captured records, exact active announcement bindings, revision identity, independent signature and legacy factor coverage contract.
+- Verify before provider fetch and again on offline replay; reject absent/rotated keys, tampering, missing records, late or incomplete coverage, mismatched announcement payload/revision and cross-board data.
+- `replay_historical(require_live_pit=True)` rejects legacy synthetic snapshots; production callers must supply pinned trusted keys at runtime. Keys are never persisted in snapshot config.
+- Added synthetic end-to-end tests for TWSE/TPEx and fail-closed adversarial cases. **No production attestor or genuine historical completeness is claimed.**
+- Validation ledger: branch CI SHA c1d6bc460d83c21d400de3e9d544b2ed7ea293bc failed 2/148 only on wrong-key expected error string (Python 3.11; 3.12 cancelled). Root cause: wrong but well-formed pinned key correctly fails signature verification, not key-presence check. Failure count 1; corrected exact negative assertion; next new SHA gets one branch gate. Do not rerun successful PR #11 gates.
+- Next: verify branch CI once; if green open PR -> PR CI -> merge -> main CI. Then provision real independent attestor/archive capture before claiming live PIT; proceed with DailyReport and mobile-first Web on separately gated work.
