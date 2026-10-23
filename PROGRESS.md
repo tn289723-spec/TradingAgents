@@ -1,66 +1,67 @@
 # TradingAgents-TW v0.1 Progress
 
+## Baseline
+First V0.1 core batch merged to `main`:
+`b4ffebcfcc6c9200850a9b2d7f8824f4a0d193cf`
+
 ## Current checkpoint
-Branch: `codex/v0.1-core`
-PR: #2
+Branch: `codex/v0.1-truth-state-2`
+Issue: #3
 
-### Completed
-- Strict Contracts: Evidence, EvidenceAssessment, TruthSnapshot, TrendAssessment, DirectionalScore, Confidence, CorporateAction, PeerMembership, DailyReport.
-- Point-in-Time enforcement and immutable TruthSnapshot builder.
-- Point-in-Time semantics corrected: availability is bounded by `published_at` / `observed_at`; a future `event_time` or `effective_at` is allowed when the market already knows the scheduled event.
-- All information timestamps and analysis cutoffs are timezone-aware; naive timestamps fail closed.
-- Critical Missing / unresolved conflict Decision Gate.
-- Explicit `RAW` / `ADJUSTED` price-basis contracts.
-- Price series fail closed on mixed basis, adjustment method/version, symbol or chronology errors.
-- Corporate Action adjustment factors, when present, must be positive.
-- Versioned deterministic Trend candidate classifier.
-- Versioned Trend hysteresis transition engine; default transition confirmation window = 2 observations.
-- Frozen Directional Score V0.1 configuration:
-  - TREND 30%
-  - VOLUME_PRICE 20%
-  - RELATIVE_STRENGTH 15%
-  - FLOW 15%
-  - FUNDAMENTAL 10%
-  - EVENT 10%
-- V0.1 component signal contract: standardized signed signal [-1, +1] → normalized [0, 100]; source-native metrics remain outside ScoreComponent and must be traceable through State/Evidence.
-- Explainable Directional Score recomputation.
-- Canonical state replay serialization.
-- Exact V0.1 golden replay fixture.
-- Data Provider Adapter contract; adapters return Evidence only and Truth retains authority over point-in-time/conflict validation.
-- DailyReport → Markdown pure projection.
+### Completed in batch 2
+- Truth-owned Provider Output Boundary:
+  - provider capability check
+  - source identity check
+  - symbol check
+  - evidence-type check
+  - duplicate evidence-id check
+  - provider output must enter Truth as RAW
+  - Point-in-Time cutoff enforcement
+- Corporate Action deterministic back-adjustment:
+  - explicit `BACK_ADJUST_MULTIPLICATIVE_V1`
+  - RAW input required
+  - adjusted output carries `adjustment_as_of`
+  - only actions with `event_date <= adjustment_as_of` affect prices
+  - known future actions remain Evidence but do not alter current prices early
+  - volume remains as reported
+- Trend state-machine transition tests now cover all 8 TrendState values.
+- TruthSnapshot deterministic identity:
+  - SHA-256 `content_hash`
+  - SHA-256 `config_hash`
+  - Evidence order canonicalized
+  - datetimes canonicalized to UTC before hashing
+  - equivalent UTC / Asia-Taipei instants produce the same snapshot identity
+- First official Taiwan market provider:
+  - `TWSEStockDayAllAdapter`
+  - official endpoint: `https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL`
+  - capability explicitly marked `LATEST_ONLY`
+  - provider emits RAW Evidence only
+  - conservative `published_at = observed_at`
+  - latest-only adapter refuses historical replay after the requested cutoff
+  - ROC and Gregorian date parsing supported
 
-## Verification
-Latest implementation HEAD before this documentation checkpoint:
-`a051bc873c3c58fbf30d87e5b0006c39950aa232`
+### Verification
+Latest implementation HEAD:
+`e1000bb03287f326f415ee1fc02f360707907ac3`
 
-GitHub Actions:
-- Push CI: PASS
-- Pull Request CI: PASS
+GitHub Actions run #27:
 - Python 3.11: PASS
 - Python 3.12: PASS
 - Compile: PASS
-- Pytest: **24 / 24 PASS**
-- Runtime: 0.13s on Python 3.11 job
+- Pytest: **43 / 43 PASS**
+- Runtime: 0.23s on Python 3.11
 
-Verified invariants include:
-- No evidence published/observed after analysis cutoff.
-- Known future scheduled events are not falsely classified as lookahead.
-- Naive timestamps fail closed.
-- Critical Missing cannot be averaged away by high coverage.
-- Unresolved critical source conflict → BLOCKED.
-- RAW / ADJUSTED prices cannot be silently mixed.
-- Trend changes require deterministic hysteresis confirmation.
-- Same State input → byte-stable canonical replay.
-- Score component set and weights are explicit/versioned.
-- Out-of-contract standardized component signal fails closed.
-- Provider request windows and cutoffs are strict and typed.
+### Important GPT review corrections
+1. Future `effective_at` is not automatically lookahead when the event was already published/observed.
+2. Known future Corporate Actions must not modify today's adjusted price series before their event date.
+3. Snapshot identity must normalize equivalent timezone representations to one UTC canonical instant.
 
 ## Next atomic tasks
-1. Add provider-output boundary validation under Truth (source/symbol/type/cutoff).
-2. Add Corporate Action adjustment application + raw/adjusted dual-series fixture.
-3. Add Trend transition-table tests across all eight states.
-4. Add TruthSnapshot content hash / config hash derivation contract.
-5. Add first official Taiwan OHLCV provider adapter behind the Provider contract.
+1. Add TruthSnapshot persistence/replay store contract.
+2. Add post-market ingestion orchestration around Provider → Truth Boundary → Snapshot.
+3. Add TPEx official OHLCV adapter behind the same Provider contract.
+4. Add official Corporate Action source adapter behind Truth.
+5. Feed adjusted PriceSeries into the deterministic State engine with replay fixtures.
 
 ## Rule
-Do not add Judgment/LLM, adaptive weighting, RL, automatic execution or UI expansion until V0.1 Truth/State invariants are complete.
+Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion until V0.1 Truth/State replay path is complete.
