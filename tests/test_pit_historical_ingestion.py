@@ -84,7 +84,7 @@ def test_signed_capture_bound_to_ingest_and_offline_replay(tmp_path, market):
     )
     assert len(replayed.adjusted.bars) >= 60
     assert replayed.truth_hash == snapshot.content_hash
-    with pytest.raises(ValueError, match="not independently trusted"):
+    with pytest.raises(ValueError, match="invalid PIT coverage attestor signature"):
         replay_historical(
             store=args["store"], snapshot_id=args["snapshot_id"],
             trusted_public_keys={"independent-fixture-attestor": "0" * 64},
