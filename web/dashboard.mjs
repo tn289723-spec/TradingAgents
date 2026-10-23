@@ -22,9 +22,16 @@ function validDate(value) {
   return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 function validTimestamp(value) {
-  return typeof value === "string" &&
-    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value) &&
-    Number.isFinite(Date.parse(value));
+  if (typeof value !== "string") return false;
+  const parts = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-]\d{2}:\d{2})$/.exec(value);
+  if (!parts || !validDate(parts[1])) return false;
+  if (+parts[2] > 23 || +parts[3] > 59 || +parts[4] > 59) return false;
+  if (parts[5] !== "Z") {
+    const hours = Number(parts[5].slice(1, 3));
+    const minutes = Number(parts[5].slice(4, 6));
+    if (hours > 23 || minutes > 59) return false;
+  }
+  return Number.isFinite(Date.parse(value));
 }
 
 /** Only accepts the exact v1 JSON emitted by render_dashboard_projection_json. */
@@ -94,26 +101,31 @@ function show(projection) {
 /** Static hosting works without backend. Missing/invalid source stays BLOCKED. */
 export async function mountDashboard() {
   clear();
+  let generation = 0;
   const input = document.getElementById("projection-file");
   input.addEventListener("change", async () => {
+    const ticket = ++generation;
     clear();
     const file = input.files?.[0];
     if (!file) return;
     try {
       if (file.size > 131072) throw new ProjectionError("檔案超過 128 KiB");
-      show(parseProjection(await file.text()));
+      const parsed = parseProjection(await file.text());
+      if (ticket === generation) show(parsed);
     } catch (error) {
+      if (ticket !== generation) return;
       clear();
       put("status", error instanceof ProjectionError ? error.message : "讀取失敗");
     }
   });
+  const ticket = ++generation;
   try {
     const response = await fetch(new URL("./projection.json", import.meta.url), { cache: "no-store", credentials: "omit" });
-    if (!response.ok) return;
+    if (ticket !== generation || !response.ok) return;
     const body = await response.text();
-    show(parseProjection(body));
+    if (ticket === generation) show(parseProjection(body));
   } catch {
-    clear();
+    if (ticket === generation) clear();
   }
 }
 
