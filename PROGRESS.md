@@ -201,3 +201,13 @@ Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion unti
 - Offline tests exercise byte identity, immutable collision/tamper, empty observations, invalid feed, clock and fetch failure.
 - Next: one Branch CI for the final SHA, PR CI, merge and main CI. Then operational capture scheduling and independently auditable coverage attestations, with missing polling intervals fail-closed. Issue #9 remains OPEN.
 - Retry ledger: this new point starts at 0 failures; existing green SHA/gates must not be rerun.
+
+
+## 2026-10-24 — Issue #9 atomic batch H: scheduled prospective poll audit (pending gates)
+- Base main: `64cbed332092303b88bd2916c33894f48535232c` (PR #17 merged, 3 CI gates green; no reruns).
+- Branch: `codex/v0.1-pit-capture-operator`; separate `pit-capture` append-only evidence branch created from this base for GitHub Actions to store receipts without mutating main.
+- Added hash-linked single-writer poll journal, success/error receipts, deterministic missed-poll or previous-error indicators, no exception text/secret persistence, and fail-closed corruption detection.
+- Added daily GitHub Actions scheduled operator at 19:17 Asia/Taipei; GitHub schedule is best-effort and missing runs cannot be considered covered. Audit receipts persist to isolated `pit-capture` branch; failed captures are committed as errors before the workflow reports failure.
+- Raw feed receipts remain untrusted prospective observations. Even consecutive successful polls do **not** prove announcement publication/revision completeness, independent attestation or historical PIT. No live data is bundled with the Web.
+- New point validation: one Branch CI on final SHA, then PR CI -> merge -> main CI. Verify first actual scheduled/manual poll separately only if authorized; GitHub Actions write permission and schedule execution are operational prerequisites.
+- Issue #14 Pages/Cloudflare permissions unchanged: no equivalent failed deployment retry. Issue #9 remains open until independently operated attestor and complete trustworthy coverage are available.
