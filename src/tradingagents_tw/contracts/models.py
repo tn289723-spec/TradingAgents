@@ -190,11 +190,15 @@ class TruthSnapshot(StrictModel):
     analysis_cutoff: datetime
     evidence: tuple[Evidence, ...]
     assessment: EvidenceAssessment
+    content_hash: str
+    config_hash: str
     schema_version: str = "1.0"
 
     @model_validator(mode="after")
     def cutoff_is_aware(self) -> "TruthSnapshot":
         _require_aware("analysis_cutoff", self.analysis_cutoff)
+        if len(self.content_hash) != 64 or len(self.config_hash) != 64:
+            raise ValueError("truth snapshot hashes must be SHA-256 hex digests")
         return self
 
 

@@ -1,0 +1,17 @@
+{
+  "symbol": "9999",
+  "bars": [
+    {"trade_date": "2026-10-22", "open": 100, "high": 110, "low": 90, "close": 100, "volume": 1000},
+    {"trade_date": "2026-10-23", "open": 50, "high": 55, "low": 45, "close": 50, "volume": 2000}
+  ],
+  "action": {
+    "action_id": "split-1",
+    "action_type": "SPLIT",
+    "event_date": "2026-10-23",
+    "adjustment_factor": 0.5
+  },
+  "expected": [
+    {"trade_date": "2026-10-22", "open": 50, "high": 55, "low": 45, "close": 50, "volume": 1000},
+    {"trade_date": "2026-10-23", "open": 50, "high": 55, "low": 45, "close": 50, "volume": 2000}
+  ]
+}
