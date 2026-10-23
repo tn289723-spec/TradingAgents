@@ -173,3 +173,14 @@ Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion unti
 - Verification checkpoint: pending first Branch CI for the new SHA. Do not rerun PR #12 gates. Failure counter for this new point starts at 0.
 - Next: PR gate → merge → main gate if branch green. Then Mobile-First Web UI reading projection JSON only. Issue #9 remains OPEN pending independent real-world PIT attestor and complete capture evidence.
 - First Branch CI `9afc4dbfe37d20f7341d28b66b71b6ca50c30eb8`, run 39992470187: 157 PASS / 2 FAIL on Python 3.11 (3.12 cancelled). One fixture-expectation root cause: tampered Truth raises the existing `SnapshotIntegrityError`, and a changed gate without a rebuilt hash is rightly rejected at integrity verification before gate validation. Tests now expect the integrity exception and rebuild a valid BLOCKED snapshot to exercise the non-PASS branch. No production checks relaxed. Failure count 1; next SHA gets one Branch CI.
+
+
+## 2026-10-24 — Issue #14 atomic batch E: Mobile-First Web read-only client
+- Base main: `be25e54b82fcd0604087dc5bc5db3d9de7b1ae6e` (PR #13 merged; its successful gates are reused without rerun).
+- Branch: `codex/v0.1-mobile-web`.
+- Added static accessible mobile-first `web/index.html`, strict `dashboard.mjs` consumer and deterministic Node 22 smoke tests. No mock projection or generated scores are bundled; missing/invalid JSON leaves the page blocked. A local file-picker allows explicit v1 JSON import with format validation, not cryptographic authentication.
+- Browser displays upstream Directional Score, Trend, Confidence, Decision Gate, evidence-readiness traffic lights, 5-day score slope, explicitly unavailable 5-day change/thesis/most-likely-wrong, limitations and source IDs. The browser never recomputes market state.
+- Addressed two P1 Codex findings from merged PR #13: reject unknown DailyReport schema versions; unresolved conflicts cannot be presented as PASS/DEGRADED. Added Python regression tests.
+- CI adds a Node 22 UI gate beside Python 3.11/3.12; branch gate pending. Do not rerun the already-green PR #13 gates.
+- Remaining: Branch CI once on final SHA, then PR CI → merge → main CI. Deploy the `web/` static output to an authorized HTTPS URL and verify real reachability. No genuine signed PIT archive or production attestor is provisioned (Issue #9 OPEN).
+- Retry ledger: new web batch failure count 0; do not retry unchanged SHA/gate.
