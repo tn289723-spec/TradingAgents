@@ -14,7 +14,7 @@ from tradingagents_tw.truth.archive import build_attestation, capture_action
 from tradingagents_tw.truth.attestation import SignedCoverageProof
 from tradingagents_tw.truth.historical_replay import ingest_historical, replay_historical
 
-DOMAIN = b"TradingAgents-TW/PIT-coverage/Ed25519/v1\\x00"
+DOMAIN = b"TradingAgents-TW/PIT-coverage/Ed25519/v1\x00"
 KEY = Ed25519PrivateKey.from_private_bytes(bytes(range(32)))
 PUB = KEY.public_key().public_bytes(
     encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw,
