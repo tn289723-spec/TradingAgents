@@ -116,3 +116,7 @@ export async function mountDashboard() {
     clear();
   }
 }
+
+if (typeof document !== "undefined" && document.getElementById("projection-file")) {
+  void mountDashboard();
+}
