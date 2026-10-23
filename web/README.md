@@ -22,3 +22,10 @@ node --test web/dashboard.test.mjs
 pytest
 ```
 CI runs both Python matrices and the Node 22 dashboard smoke tests. Production hosting and genuine signed PIT capture remain separate release gates.
+
+## GitHub Pages alternative (no Cloudflare project creation)
+A deployment workflow at `.github/workflows/pages.yml` builds the audited, read-only static client from `web/index.html` and `web/dashboard.mjs` only. It does **not** publish synthetic or user-uploaded `projection.json`, secrets, or test fixtures.
+
+The repository administrator must enable **Settings → Pages → Build and deployment → Source: GitHub Actions** once, if Pages is not yet enabled. The workflow then runs on changes to `web/**` or the Pages workflow on `main`, or manually via `workflow_dispatch`. The expected URL shape is `https://tn289723-spec.github.io/TradingAgents/` **only after** a successful deployment and independent HTTP reachability check; do not claim it is live from workflow creation alone.
+
+Until a separately authorized, independently verified PIT data pipeline publishes a valid same-origin `projection.json`, the hosted dashboard intentionally shows **BLOCKED / no trusted data**. Manual JSON import is for local inspection, not verified live market data. The release gate remains open until HTTPS and deployment success are observed.
