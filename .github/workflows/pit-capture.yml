@@ -1,0 +1,54 @@
+name: Prospective TWSE PIT capture (unattested)
+
+on:
+  schedule:
+    # 19:17 Asia/Taipei, daily; GitHub schedule is best-effort, not an SLA.
+    - cron: "17 11 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prospective-twse-pit-capture
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout verified operator
+        uses: actions/checkout@v4
+      - name: Checkout append-only audit branch
+        uses: actions/checkout@v4
+        with:
+          ref: pit-capture
+          path: pit-archive
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install operator
+        run: pip install -e .
+      - name: Capture official TWSE feed and audit outcome
+        id: poll
+        shell: bash
+        run: |
+          set +e
+          python -m tradingagents_tw.truth.capture_operator --archive-root pit-archive/data/pit
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Persist immutable receipts on isolated branch
+        working-directory: pit-archive
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- data/pit/feed-observations data/pit/poll-records
+          if ! git diff --cached --quiet; then
+            git commit -m "evidence: append prospective TWSE poll receipt"
+            git push origin HEAD:pit-capture
+          fi
+      - name: Surface failed observation after audit persistence
+        if: steps.poll.outputs.exit_code != '0'
+        run: exit 1
