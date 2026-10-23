@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from datetime import date
 import math
-from typing import Literal
+from typing import Literal, Mapping
 
 from pydantic import Field, model_validator
 
@@ -22,11 +22,13 @@ from .ingestion import promote_validated_evidence
 from .point_in_time import assert_point_in_time
 from .provider_boundary import validate_provider_output
 from .snapshot import build_truth_snapshot
+from .signed_historical import verify_signed_historical_coverage
 from .store import TruthSnapshotStore, verify_snapshot_integrity
 
 
 class HistoricalReplayConfig(StrictModel):
     engine_version: Literal["historical-truth-trend-v1"] = "historical-truth-trend-v1"
+    archive_mode: Literal["SYNTHETIC_FIXTURE_ONLY", "SIGNED_PIT_V1"] = "SYNTHETIC_FIXTURE_ONLY"
     registry_version: Literal["taiwan-market-sources-v1"] = REGISTRY_VERSION
     factor_version: Literal["official-reference-factor-v1"] = "official-reference-factor-v1"
     market: Market
@@ -89,7 +91,29 @@ def _raw_prices(evidence: tuple[Evidence, ...], *, symbol: str, end: date, cutof
                        bars=tuple(sorted(bars, key=lambda b: b.trade_date))), by_date
 
 
-def evaluate_historical_snapshot(snapshot: TruthSnapshot, config: HistoricalReplayConfig) -> HistoricalReplay:
+def _verify_coverage_boundary(
+    coverage: Evidence, announcements: tuple[Evidence, ...], *,
+    config: HistoricalReplayConfig, symbol: str, end: date, cutoff,
+    trusted_public_keys: Mapping[str, str] | None,
+) -> None:
+    if config.archive_mode == "SIGNED_PIT_V1":
+        verify_signed_historical_coverage(
+            coverage, announcements, market=config.market, symbol=symbol,
+            start=config.start_date, end=end, cutoff=cutoff,
+            trusted_public_keys=trusted_public_keys or {},
+        )
+    else:
+        # Backward-compatible synthetic fixtures. This path does NOT certify live PIT.
+        validate_action_coverage(
+            coverage, announcements, market=config.market, symbol=symbol,
+            start=config.start_date, end=end, cutoff=cutoff,
+        )
+
+
+def evaluate_historical_snapshot(
+    snapshot: TruthSnapshot, config: HistoricalReplayConfig, *,
+    trusted_public_keys: Mapping[str, str] | None = None,
+) -> HistoricalReplay:
     verify_snapshot_integrity(snapshot)
     if snapshot.config_hash != derive_config_hash(config.model_dump(mode="json")):
         raise ValueError("historical replay config hash mismatch")
@@ -103,8 +127,11 @@ def evaluate_historical_snapshot(snapshot: TruthSnapshot, config: HistoricalRepl
     coverages = tuple(e for e in snapshot.evidence if e.evidence_type == "CORPORATE_ACTION_COVERAGE")
     if len(coverages) != 1:
         raise ValueError("exactly one historical corporate action coverage manifest is required")
-    validate_action_coverage(coverages[0], announcements, market=config.market, symbol=snapshot.symbol,
-                             start=config.start_date, end=snapshot.trade_date, cutoff=snapshot.analysis_cutoff)
+    _verify_coverage_boundary(
+        coverages[0], announcements, config=config, symbol=snapshot.symbol,
+        end=snapshot.trade_date, cutoff=snapshot.analysis_cutoff,
+        trusted_public_keys=trusted_public_keys,
+    )
     factors = []
     for announcement in sorted(announcements, key=lambda e: (e.payload["event_date"], e.evidence_id)):
         event = date.fromisoformat(announcement.payload["event_date"])
@@ -127,14 +154,18 @@ def evaluate_historical_snapshot(snapshot: TruthSnapshot, config: HistoricalRepl
 
 def ingest_historical(*, provider: ProviderAdapter, request: ProviderRequest,
                       config: HistoricalReplayConfig, announcements: tuple[Evidence, ...],
-                      coverage: Evidence, snapshot_id: str, store: TruthSnapshotStore) -> TruthSnapshot:
+                      coverage: Evidence, snapshot_id: str, store: TruthSnapshotStore,
+                      trusted_public_keys: Mapping[str, str] | None = None) -> TruthSnapshot:
     require_historical_source(config.market, provider.metadata)
     if request.start_date != config.start_date or request.evidence_types != ("OHLCV",):
         raise ValueError("historical request/config window mismatch")
     config.cutoff_policy.require_finalized(config.calendar, request.end_date, request.analysis_cutoff)
     # Fail before any network access when the required action archive is absent/incomplete.
-    validate_action_coverage(coverage, announcements, market=config.market, symbol=request.symbol,
-                             start=request.start_date, end=request.end_date, cutoff=request.analysis_cutoff)
+    _verify_coverage_boundary(
+        coverage, announcements, config=config, symbol=request.symbol,
+        end=request.end_date, cutoff=request.analysis_cutoff,
+        trusted_public_keys=trusted_public_keys,
+    )
     raw = provider.fetch(request)
     validated = validate_provider_output(metadata=provider.metadata, request=request, evidence=raw)
     verified = promote_validated_evidence(validated)
@@ -145,12 +176,22 @@ def ingest_historical(*, provider: ProviderAdapter, request: ProviderRequest,
         assessment=EvidenceAssessment(coverage=100, freshness="PASS", provenance="PASS", decision_gate=GateStatus.PASS),
         config=config_payload,
     )
-    evaluate_historical_snapshot(snapshot, config)  # No invalid PASS snapshot is persisted.
+    evaluate_historical_snapshot(
+        snapshot, config, trusted_public_keys=trusted_public_keys,
+    )  # No invalid PASS snapshot is persisted.
     store.put(snapshot, config=config_payload)
     return snapshot
 
 
-def replay_historical(*, store: TruthSnapshotStore, snapshot_id: str) -> HistoricalReplay:
+def replay_historical(
+    *, store: TruthSnapshotStore, snapshot_id: str,
+    trusted_public_keys: Mapping[str, str] | None = None,
+    require_live_pit: bool = False,
+) -> HistoricalReplay:
     snapshot = store.replay(snapshot_id)
     config = HistoricalReplayConfig.model_validate(store.replay_config(snapshot.config_hash))
-    return evaluate_historical_snapshot(snapshot, config)
+    if require_live_pit and config.archive_mode != "SIGNED_PIT_V1":
+        raise ValueError("synthetic replay cannot certify real historical PIT")
+    return evaluate_historical_snapshot(
+        snapshot, config, trusted_public_keys=trusted_public_keys,
+    )
