@@ -13,6 +13,7 @@ from tradingagents_tw.reporting import (
     build_daily_report, project_daily_report, render_dashboard_projection_json,
 )
 from tradingagents_tw.truth.snapshot import build_truth_snapshot
+from tradingagents_tw.truth.store import SnapshotIntegrityError
 
 UTC = timezone.utc
 DAY = date(2026, 10, 23)
@@ -89,7 +90,7 @@ def test_rejects_truth_state_lineage_mismatch(field, value):
 
 def test_rejects_tampered_truth_and_premature_report():
     truth, state, confidence = fixtures()
-    with pytest.raises(ValueError):
+    with pytest.raises(SnapshotIntegrityError):
         build_daily_report(
             truth=truth.model_copy(update={"content_hash": "f" * 64}),
             state=state, confidence=confidence, analysis_run_id="run-1",
@@ -104,13 +105,18 @@ def test_rejects_tampered_truth_and_premature_report():
 
 def test_rejects_nonpass_truth_before_scored_report():
     truth, state, confidence = fixtures()
+    blocked_truth = build_truth_snapshot(
+        snapshot_id=truth.snapshot_id, symbol=truth.symbol,
+        trade_date=truth.trade_date, analysis_cutoff=truth.analysis_cutoff,
+        evidence=truth.evidence,
+        assessment=truth.assessment.model_copy(
+            update={"decision_gate": GateStatus.BLOCKED}
+        ),
+        config={"fixture": 1},
+    )
     with pytest.raises(ValueError, match="non-PASS"):
         build_daily_report(
-            truth=truth.model_copy(update={
-                "assessment": truth.assessment.model_copy(
-                    update={"decision_gate": GateStatus.BLOCKED}
-                )
-            }), state=state, confidence=confidence,
+            truth=blocked_truth, state=state, confidence=confidence,
             analysis_run_id="run-1", generated_at=CUTOFF + timedelta(minutes=1),
         )
 
