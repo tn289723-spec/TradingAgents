@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import date, datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -308,3 +309,31 @@ def test_known_future_corporate_action_does_not_adjust_before_effective_date():
     adjusted = apply_back_adjustments(raw, (future,), as_of=date(2026, 10, 23))
     assert adjusted.bars[0].close == 100
     assert adjusted.adjustment_as_of == date(2026, 10, 23)
+
+
+def test_truth_snapshot_hash_normalizes_equivalent_timezone_instants():
+    assessment = assess_evidence(coverage=100, freshness="PASS", provenance="PASS")
+    evidence = (_raw_evidence(),)
+    utc_cutoff = datetime(2026, 10, 23, 16, tzinfo=UTC)
+    taipei_cutoff = datetime(2026, 10, 24, 0, tzinfo=ZoneInfo("Asia/Taipei"))
+
+    utc_snapshot = build_truth_snapshot(
+        snapshot_id="tz-utc",
+        symbol="2330",
+        trade_date=date(2026, 10, 23),
+        analysis_cutoff=utc_cutoff,
+        evidence=evidence,
+        assessment=assessment,
+        config={"version": 1},
+    )
+    taipei_snapshot = build_truth_snapshot(
+        snapshot_id="tz-taipei",
+        symbol="2330",
+        trade_date=date(2026, 10, 23),
+        analysis_cutoff=taipei_cutoff,
+        evidence=evidence,
+        assessment=assessment,
+        config={"version": 1},
+    )
+    assert utc_snapshot.content_hash == taipei_snapshot.content_hash
+    assert utc_snapshot.config_hash == taipei_snapshot.config_hash
