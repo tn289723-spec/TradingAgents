@@ -184,3 +184,11 @@ Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion unti
 - CI adds a Node 22 UI gate beside Python 3.11/3.12; branch gate pending. Do not rerun the already-green PR #13 gates.
 - Remaining: Branch CI once on final SHA, then PR CI → merge → main CI. Deploy the `web/` static output to an authorized HTTPS URL and verify real reachability. No genuine signed PIT archive or production attestor is provisioned (Issue #9 OPEN).
 - Retry ledger: new web batch failure count 0; do not retry unchanged SHA/gate.
+
+## 2026-10-24 — Issue #14 atomic batch F: alternative GitHub Pages delivery gate
+- Verified prior main CI for merge SHA `1bde2379a11d82ef6c48b8336471709cc81bef24`: run https://github.com/tn289723-spec/TradingAgents/actions/runs/40001137731 has `conclusion=success` (2026-10-23 18:10 UTC). This reuses the existing run; no CI rerun.
+- Main had no open PRs; Issue #9 and #14 remain open. Existing Cloudflare Pages creation previously required interactive authorization; do not retry the same unauthorized write.
+- Branch: `codex/v0.1-pages-delivery`. Add a GitHub Pages Actions deployment path as an independent alternative, with Node 22 validation and an explicit allowlist of static HTML/JS only; no `projection.json` or synthetic fixtures are published.
+- GitHub Pages site may require one-time repository Settings → Pages → Source: GitHub Actions enablement. Deployment URL and HTTP reachability must be verified before closing #14; do not infer live hosting from a workflow file.
+- No changes to Truth/State, PIT attestation, market calculations or production data. Issue #9 remains open for independently captured complete historical PIT evidence.
+- New branch CI → PR CI → main CI and Pages deployment are distinct gates. No unchanged SHA rechecks; failed deployment caused by missing Pages enablement is an external configuration blocker, not a reason to rerun equivalent CI.
