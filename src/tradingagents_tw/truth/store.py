@@ -130,6 +130,19 @@ class FileTruthSnapshotStore:
             if os.path.exists(temp_name):
                 os.unlink(temp_name)
 
+    @staticmethod
+    def _write_ref_exclusive(path: Path, text: str) -> bool:
+        """Create an immutable ref without a last-writer-wins race."""
+        path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with path.open("x", encoding="utf-8") as handle:
+                handle.write(text)
+                handle.flush()
+                os.fsync(handle.fileno())
+            return True
+        except FileExistsError:
+            return False
+
     def _ensure_config(
         self,
         *,
@@ -200,7 +213,15 @@ class FileTruthSnapshotStore:
             "snapshot_id": snapshot.snapshot_id,
             "content_hash": snapshot.content_hash,
         }
-        self._write_atomic(ref_path, _canonical_json(ref_payload))
+        ref_text = _canonical_json(ref_payload)
+        if not self._write_ref_exclusive(ref_path, ref_text):
+            winner = json.loads(ref_path.read_text(encoding="utf-8"))
+            if winner.get("snapshot_id") != snapshot.snapshot_id:
+                raise SnapshotIntegrityError("snapshot ref key collision")
+            if winner.get("content_hash") != snapshot.content_hash:
+                raise SnapshotImmutableError(
+                    f"snapshot_id {snapshot.snapshot_id!r} was concurrently bound to different content"
+                )
 
     def replay_config(self, config_hash: str) -> dict[str, Any]:
         config_path = self._config_path(config_hash)
