@@ -37,6 +37,8 @@ class ProviderRequest(StrictModel):
             raise ValueError("request must include at least one evidence type")
         if self.end_date < self.start_date:
             raise ValueError("end_date cannot precede start_date")
+        if self.analysis_cutoff.utcoffset() is None:
+            raise ValueError("analysis_cutoff must be timezone-aware")
         return self
 
 
