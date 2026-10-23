@@ -154,3 +154,35 @@ def test_contradictory_green_gate_fails_closed():
     })
     with pytest.raises(ValueError, match="contradicts"):
         project_daily_report(modified)
+
+
+def test_projection_rejects_unknown_report_schema():
+    r = report().model_copy(update={"schema_version": "999.0"})
+    with pytest.raises(ValueError, match="unsupported DailyReport schema_version"):
+        project_daily_report(r)
+
+
+def test_projection_requires_blocked_for_unresolved_conflicts():
+    r = report()
+    for gate in (GateStatus.PASS, GateStatus.DEGRADED):
+        modified = r.model_copy(update={
+            "evidence": r.evidence.model_copy(update={
+                "decision_gate": gate,
+                "unresolved_conflicts": ("official source disagreement",),
+            }),
+        })
+        with pytest.raises(ValueError, match="require BLOCKED"):
+            project_daily_report(modified)
+
+
+def test_projection_allows_blocked_conflict_without_false_readiness():
+    r = report()
+    modified = r.model_copy(update={
+        "evidence": r.evidence.model_copy(update={
+            "decision_gate": GateStatus.BLOCKED,
+            "unresolved_conflicts": ("unresolved revision",),
+        }),
+    })
+    projection = project_daily_report(modified)
+    assert projection.traffic_light == "RED"
+    assert "unresolved revision" in projection.limitations

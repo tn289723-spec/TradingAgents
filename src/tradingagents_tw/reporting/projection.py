@@ -40,10 +40,14 @@ _GATE_LIGHT = {
 
 def project_daily_report(report: DailyReport) -> DashboardProjection:
     """Project supplied fields only. Missing analyses remain explicit nulls."""
-    if report.evidence.decision_gate is GateStatus.PASS and (
-        report.evidence.critical_missing or report.evidence.unresolved_conflicts
-    ):
-        raise ValueError("PASS gate contradicts critical missing/conflicted evidence")
+    if report.schema_version != "1.0":
+        raise ValueError("unsupported DailyReport schema_version")
+    if (report.evidence.unresolved_conflicts
+            and report.evidence.decision_gate is not GateStatus.BLOCKED):
+        raise ValueError("unresolved conflicts require BLOCKED evidence gate")
+    if (report.evidence.decision_gate is GateStatus.PASS
+            and report.evidence.critical_missing):
+        raise ValueError("PASS gate contradicts critical missing evidence")
     limitations = tuple(dict.fromkeys(
         report.confidence.limitations + report.evidence.gate_reasons
         + report.evidence.critical_missing + report.evidence.unresolved_conflicts

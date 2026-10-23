@@ -1,0 +1,24 @@
+# TradingAgents-TW Mobile-First Web (read-only)
+
+Static UI at `web/index.html`. It consumes **only** the serialized `DashboardProjection` v1 contract from `render_dashboard_projection_json(report)`.
+
+## Local use
+```sh
+node --test web/dashboard.test.mjs
+python -m http.server 8080 --directory web
+```
+Open the local HTTP server in a browser. With no `web/projection.json`, the screen remains **BLOCKED / no data**. You may load an actual v1 projection JSON through the file picker. A manually imported JSON is schema-checked but **not cryptographically authenticated**.
+
+## Deployment
+Deploy `web/` as a static directory (Cloudflare Pages build command: none; output directory: `web`). Keep the origin HTTPS. For an authorized real data pipeline, atomically publish the exact validated `render_dashboard_projection_json(report)` bytes as same-origin `projection.json`; never substitute synthetic fixtures or expose raw provider secrets.
+
+The page intentionally contains **no** default `projection.json` or embedded sample prices. A missing, invalid, future-version or contradictory projection shows no scores. The UI cannot independently certify historical PIT completeness, verify signed archive attestations or reconstruct upstream Truth/State; those gates must run before publishing. A green light only means the upstream report's **evidence-readiness gate**, not a trading signal or a claim of historical PIT certification.
+
+Do not put the local file-picker content into analytics, localStorage, or network upload. The current implementation does not persist the selected file.
+
+## Acceptance
+```sh
+node --test web/dashboard.test.mjs
+pytest
+```
+CI runs both Python matrices and the Node 22 dashboard smoke tests. Production hosting and genuine signed PIT capture remain separate release gates.
