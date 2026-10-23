@@ -22,7 +22,7 @@ from tradingagents_tw.contracts import StrictModel
 from tradingagents_tw.providers.corporate_actions import TWSE_EXRIGHT_PREVIEW_URL
 
 MAX_RESPONSE_BYTES = 2_000_000
-_HEX64 = re.compile(r"[0-9a-f]{64}\\Z")
+_HEX64 = re.compile(r"[0-9a-f]{64}\Z")
 
 
 def _canonical(value: object) -> bytes:
