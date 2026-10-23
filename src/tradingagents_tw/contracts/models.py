@@ -6,6 +6,11 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
+def _require_aware(name: str, value: datetime | None) -> None:
+    if value is not None and value.utcoffset() is None:
+        raise ValueError(f"{name} must be timezone-aware")
+
+
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -58,10 +63,15 @@ class Evidence(StrictModel):
 
     @model_validator(mode="after")
     def chronology_is_possible(self) -> "Evidence":
+        _require_aware("event_time", self.event_time)
+        _require_aware("published_at", self.published_at)
+        _require_aware("observed_at", self.observed_at)
+        _require_aware("effective_at", self.effective_at)
         if self.observed_at < self.published_at:
             raise ValueError("observed_at cannot precede published_at")
-        if self.effective_at and self.effective_at > self.observed_at:
-            raise ValueError("effective_at cannot be after observed_at")
+        # event_time/effective_at may be in the future if the market learned
+        # about a scheduled event before it occurs. Availability is governed
+        # by published_at/observed_at, not effective_at.
         return self
 
 
@@ -182,6 +192,11 @@ class TruthSnapshot(StrictModel):
     assessment: EvidenceAssessment
     schema_version: str = "1.0"
 
+    @model_validator(mode="after")
+    def cutoff_is_aware(self) -> "TruthSnapshot":
+        _require_aware("analysis_cutoff", self.analysis_cutoff)
+        return self
+
 
 class CorporateActionType(str, Enum):
     DIVIDEND = "DIVIDEND"
@@ -198,7 +213,7 @@ class CorporateAction(StrictModel):
     symbol: str
     action_type: CorporateActionType
     event_date: date
-    adjustment_factor: float | None = None
+    adjustment_factor: float | None = Field(default=None, gt=0)
     adjustment_method: str
     source: str
     published_at: datetime
@@ -206,6 +221,8 @@ class CorporateAction(StrictModel):
 
     @model_validator(mode="after")
     def chronology_is_possible(self) -> "CorporateAction":
+        _require_aware("published_at", self.published_at)
+        _require_aware("observed_at", self.observed_at)
         if self.observed_at < self.published_at:
             raise ValueError("observed_at cannot precede published_at")
         return self
@@ -239,6 +256,11 @@ class DailyReport(StrictModel):
     state_engine_version: str
     config_hash: str
     generated_at: datetime
+
+    @model_validator(mode="after")
+    def generated_at_is_aware(self) -> "DailyReport":
+        _require_aware("generated_at", self.generated_at)
+        return self
 
 
 class StateSnapshot(StrictModel):
