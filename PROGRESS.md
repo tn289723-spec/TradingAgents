@@ -142,3 +142,12 @@ Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion unti
 - Offline tests use synthetic observations; they do NOT establish live historical PIT completeness.
 - Next: verify this SHA once in Branch CI, then PR gate; integrate the trusted coverage source into historical ingestion only after independent attestation mechanism is established. Build DailyReport and mobile web after the Truth gate.
 - Retry ledger: new archive contract point starts at 0 failures; previous Issue #7 failures remain recorded in Issue #7, no equivalent gate reruns.
+
+## 2026-10-23 — Issue #9 atomic batch B: independently signed coverage proof
+- Base main HEAD: `d44c4613731d351d7bf9ebcfa604a85a29049fd2` (PR #10 merged, Python 3.11/3.12 main CI green; no repeated gates).
+- Branch: `codex/v0.1-pit-trusted-attestation`.
+- Added pinned out-of-band Ed25519 attestor public-key verification, domain-separated signed manifest hash, and combined signature + existing PIT coverage/revision verifier.
+- Missing key, invalid signature, tampered manifest, partial coverage, late record and incorrect board fail closed; synthetic offline tests only.
+- This verifies **who signed** a COMPLETE claim; it does not independently establish that the signer actually captured every historical announcement. No production attestor/key is provisioned.
+- Remaining Issue #9: wire signed archive evidence into historical ingestion and offline replay; keep legacy synthetic golden explicitly marked synthetic. Then DailyReport / mobile Web.
+- Retry ledger: batch B new validation point failure count 0; previous branch/PR/main successful gates must not be rerun.
