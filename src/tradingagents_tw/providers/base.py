@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
 
 from pydantic import model_validator
 
@@ -14,6 +14,8 @@ class ProviderMetadata(StrictModel):
     schema_version: str
     evidence_types: tuple[str, ...]
     source_priority: int
+    history_mode: Literal["LATEST_ONLY", "HISTORICAL"] = "HISTORICAL"
+    endpoint: str | None = None
 
     @model_validator(mode="after")
     def valid_capabilities(self) -> "ProviderMetadata":
