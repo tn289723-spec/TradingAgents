@@ -947,6 +947,11 @@
     "ma20": 135.5,
     "ma60": 153.7379518072289,
     "volume_ratio_20d": 1.0,
-    "state": "DOWNTREND"
-  }
+    "state": "DOWNTREND",
+    "rational_oracle": {
+      "ma20": 135.5,
+      "ma60": 153.7379518072289
+    }
+  },
+  "numeric_contract": "Factor serialized to float; decimal-text multiplicative prices serialized to float; IEEE-754 fsum then divide for State means."
 }

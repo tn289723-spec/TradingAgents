@@ -156,8 +156,10 @@ class _TableParser(HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         if tag == "tr":
+            self._finish_cell()
             self.cells = []
         if tag in ("td", "th"):
+            self._finish_cell()  # HTML permits an omitted </td> before the next cell.
             attrs = dict(attrs)
             if int(attrs.get("colspan", "1")) != 1:
                 raise ValueError("unsupported calendar colspan")
@@ -168,9 +170,8 @@ class _TableParser(HTMLParser):
             self.text.append(data)
 
     def handle_endtag(self, tag):
-        if tag in ("td", "th") and self.text is not None:
-            self.cells.append(("".join(self.text).strip(), self.span))
-            self.text = None
+        if tag in ("td", "th", "tr"):
+            self._finish_cell()  # The official 2026 Dragon Boat row omits </td>.
         if tag == "tr":
             row, index, remaining = [], 0, list(self.cells)
             while remaining or index in self.pending:
@@ -183,6 +184,11 @@ class _TableParser(HTMLParser):
                     self.pending[index] = (value, count - 1)
                 index += 1
             self.rows.append(row)
+
+    def _finish_cell(self):
+        if self.text is not None:
+            self.cells.append(("".join(self.text).strip(), self.span))
+            self.text = None
 
 
 def parse_tpex_calendar(payload: dict, *, year: int, observed_at: datetime) -> TradingCalendar:

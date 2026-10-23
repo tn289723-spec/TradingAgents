@@ -92,11 +92,20 @@ Base: `81cb2afb2c7efd0fdc52d2bd08eae73f7a6cd3d2`
 ### Verification / retry ledger
 - Remote starting HEAD and open PR inventory checked once; no newer work existed.
 - Existing baseline result reused: 53/53, Python 3.11 / 3.12; baseline not rerun.
-- Full batch verification: pending first GitHub Branch CI (3.11 / 3.12).
+- First Branch CI: `3d4cd420b59fba3b68782d7c5268b3b3b4f53679`,
+  https://github.com/tn289723-spec/TradingAgents/actions/runs/39960645710
+  Compile PASS; Python 3.12: 100 passed / 4 failed; 3.11 matrix cancelled after failure.
+- Two root causes, each at failure count 1: (a) official TPEx HTML permits omitted
+  `</td>` at row end; parser now implements HTML's implicit cell close without relaxing
+  mandatory columns/dates; (b) exact-rational golden oracle skipped the pre-existing
+  float factor/price serialization and fsum-then-divide boundaries. Golden expectations
+  now independently model those boundaries using rational arithmetic, still require
+  exact output equality, and additionally bound deviation from real arithmetic to 1 ULP.
+- Fixed batch verification pending the next Branch CI, on a new commit only.
 - No local equivalent full-suite run; Branch CI is the implementation verification gate.
 - Branch / PR / main gates each get one run per unchanged SHA, never manually rerun
   just for confidence. Max 3 attempts per failing point; save evidence and switch path
-  after the third failure. Current implementation failure count: 0.
+  after the third failure. No unchanged-SHA reruns; both known failure counts remain 1.
 - Official TWSE legacy history URL timed out once; switched to the current official
   RWD endpoint and captured a valid response. No repeated legacy endpoint attempts.
 - TPEx calendar discovery moved from a guessed URL to the action declared by its

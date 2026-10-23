@@ -5,6 +5,7 @@ from decimal import localcontext
 from fractions import Fraction
 import hashlib
 import json
+import math
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -93,6 +94,11 @@ def test_full_offline_golden(tmp_path, market):
         "close": expected["last_close"], "ma20": expected["ma20"], "ma60": expected["ma60"],
         "rs_20d": fixture["rs_20d"], "volume_ratio_20d": expected["volume_ratio_20d"],
     }
+    # A separate exact-rational oracle bounds IEEE-754 serialization error to 1 ULP;
+    # the golden above still requires bit-exact State outputs, not a loose tolerance.
+    for name in ("ma20", "ma60"):
+        rational = expected["rational_oracle"][name]
+        assert abs(getattr(result.inputs, name) - rational) <= math.ulp(rational)
     assert result.trend.state.value == expected["state"]
     assert result.trend.rule_version == "trend-hysteresis-v0.1"
     assert result.trend.state_since == args["request"].end_date
@@ -174,6 +180,19 @@ def test_calendar_rejects_wrong_year_and_unknown_schema(tmp_path, market):
         payload["data"]["html"] = payload["data"]["html"].replace("勞動節", "未知市場事件")
     with pytest.raises(ValueError, match="unrecognized"):
         parse(payload, year=2026, observed_at=observed)
+
+
+def test_optional_html_cell_end_tags_preserve_calendar_schema():
+    payload = load("official_calendars_2026.json")["tpex"]
+    observed = datetime.fromisoformat("2026-01-01T18:00:00+08:00")
+    original = parse_tpex_calendar(payload, year=2026, observed_at=observed)
+    implicit = {**payload, "data": {"html": payload["data"]["html"].replace("</td>", "")}}
+    parsed = parse_tpex_calendar(implicit, year=2026, observed_at=observed)
+    assert parsed.closed_dates == original.closed_dates
+    assert parsed.open_dates == original.open_dates
+    missing = {**payload, "data": {"html": payload["data"]["html"].replace("6月19日", "")}}
+    with pytest.raises(ValueError, match="date expression"):
+        parse_tpex_calendar(missing, year=2026, observed_at=observed)
 
 
 @pytest.mark.parametrize("market,first_volume,first_close", [(Market.TWSE, 37544470, 2505), (Market.TPEX, 3850000, 1105)])

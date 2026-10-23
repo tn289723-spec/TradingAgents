@@ -917,8 +917,13 @@
     "first_adjusted_close": 99.25373134328358,
     "last_close": 174.0,
     "ma20": 164.5,
-    "ma60": 144.1902985074627,
+    "ma60": 144.19029850746267,
     "volume_ratio_20d": 1.0,
-    "state": "UPTREND"
-  }
+    "state": "UPTREND",
+    "rational_oracle": {
+      "ma20": 164.5,
+      "ma60": 144.1902985074627
+    }
+  },
+  "numeric_contract": "Factor serialized to float; decimal-text multiplicative prices serialized to float; IEEE-754 fsum then divide for State means."
 }
