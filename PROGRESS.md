@@ -192,3 +192,12 @@ Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion unti
 - GitHub Pages site may require one-time repository Settings → Pages → Source: GitHub Actions enablement. Deployment URL and HTTP reachability must be verified before closing #14; do not infer live hosting from a workflow file.
 - No changes to Truth/State, PIT attestation, market calculations or production data. Issue #9 remains open for independently captured complete historical PIT evidence.
 - New branch CI → PR CI → main CI and Pages deployment are distinct gates. No unchanged SHA rechecks; failed deployment caused by missing Pages enablement is an external configuration blocker, not a reason to rerun equivalent CI.
+
+## 2026-10-24 — Issue #9 atomic batch G: prospective official feed receipt (unattested)
+- Base main: `b77e085b9997269c2e05948906127c292b9ad824` (PR #16 and its main CI already PASS; no rerun).
+- Branch: `codex/v0.1-prospective-feed-capture`.
+- Added a bounded, raw-byte-preserving, SHA-256-verified, exclusive-create receipt for the official TWSE rolling corporate-action feed. A direct CLI captures at actual retrieval time; no historical publication timestamp is invented.
+- Captures preserve the full source response, including empty arrays, but **never claim COMPLETE/no-action historical PIT coverage**. Retrieval failures create no success receipt. There is no production independent attestor, no live history backfill, no TPEX action source and no scheduler in this batch.
+- Offline tests exercise byte identity, immutable collision/tamper, empty observations, invalid feed, clock and fetch failure.
+- Next: one Branch CI for the final SHA, PR CI, merge and main CI. Then operational capture scheduling and independently auditable coverage attestations, with missing polling intervals fail-closed. Issue #9 remains OPEN.
+- Retry ledger: this new point starts at 0 failures; existing green SHA/gates must not be rerun.
