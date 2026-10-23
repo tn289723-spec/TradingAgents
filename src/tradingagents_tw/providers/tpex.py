@@ -1,0 +1,144 @@
+from __future__ import annotations
+
+import hashlib
+import json
+from datetime import date, datetime, time
+from typing import Any, Callable
+from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo
+
+from tradingagents_tw.contracts import Evidence, EvidenceStatus
+from .base import ProviderMetadata, ProviderRequest
+
+
+TPEX_TZ = ZoneInfo("Asia/Taipei")
+TPEX_DAILY_CLOSE_URL = (
+    "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes"
+)
+
+
+def _parse_number(value: Any) -> float:
+    text = str(value).strip().replace(",", "")
+    if text in {"", "-", "--", "---", "N/A", "null", "None"}:
+        raise ValueError("TPEx numeric field is missing")
+    return float(text)
+
+
+def _parse_int(value: Any) -> int:
+    return int(_parse_number(value))
+
+
+def _parse_date(value: Any) -> date:
+    raw = str(value).strip().replace("/", "").replace("-", "")
+    if len(raw) == 7:
+        return date(int(raw[:3]) + 1911, int(raw[3:5]), int(raw[5:7]))
+    if len(raw) == 8:
+        return date(int(raw[:4]), int(raw[4:6]), int(raw[6:8]))
+    raise ValueError(f"unsupported TPEx date format: {value}")
+
+
+def _default_fetch_json() -> list[dict[str, Any]]:
+    request = Request(
+        TPEX_DAILY_CLOSE_URL,
+        headers={"User-Agent": "TradingAgents-TW/0.1"},
+    )
+    with urlopen(request, timeout=10) as response:
+        data = json.loads(response.read().decode("utf-8"))
+    if not isinstance(data, list):
+        raise ValueError("TPEx daily close response must be a JSON array")
+    return data
+
+
+class TPEXDailyCloseAdapter:
+    metadata = ProviderMetadata(
+        provider_id="tpex-mainboard-daily-close",
+        source="TPEX_OPENAPI",
+        schema_version="1.0",
+        evidence_types=("OHLCV",),
+        source_priority=1,
+        history_mode="LATEST_ONLY",
+        endpoint=TPEX_DAILY_CLOSE_URL,
+    )
+
+    def __init__(
+        self,
+        *,
+        fetch_json: Callable[[], list[dict[str, Any]]] | None = None,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
+        self._fetch_json = fetch_json or _default_fetch_json
+        self._clock = clock or (lambda: datetime.now(TPEX_TZ))
+
+    def fetch(self, request: ProviderRequest) -> tuple[Evidence, ...]:
+        if "OHLCV" not in request.evidence_types:
+            raise ValueError("TPEx daily close only supplies OHLCV")
+        if request.start_date != request.end_date:
+            raise ValueError("LATEST_ONLY provider requires a single trade date request")
+
+        observed_at = self._clock()
+        if observed_at.utcoffset() is None:
+            raise ValueError("provider clock must return timezone-aware datetime")
+        if observed_at > request.analysis_cutoff:
+            raise ValueError(
+                "LATEST_ONLY provider cannot reconstruct evidence for a cutoff before observation"
+            )
+
+        rows = self._fetch_json()
+        row = next(
+            (
+                item
+                for item in rows
+                if str(item.get("SecuritiesCompanyCode", "")).strip()
+                == request.symbol
+            ),
+            None,
+        )
+        if row is None:
+            return ()
+
+        trade_date = _parse_date(row.get("Date"))
+        if trade_date != request.start_date:
+            raise ValueError(
+                f"TPEx latest trade date {trade_date.isoformat()} does not match requested date"
+            )
+
+        event_time = datetime.combine(trade_date, time(13, 30), tzinfo=TPEX_TZ)
+        normalized = {
+            "trade_date": trade_date.isoformat(),
+            "name": str(row.get("CompanyName", "")).strip(),
+            "open": _parse_number(row.get("Open")),
+            "high": _parse_number(row.get("High")),
+            "low": _parse_number(row.get("Low")),
+            "close": _parse_number(row.get("Close")),
+            "volume": _parse_int(row.get("TradingShares")),
+            "trade_value": _parse_int(row.get("TransactionAmount")),
+            "transaction_count": _parse_int(row.get("TransactionNumber")),
+            "change": _parse_number(row.get("Change")),
+            "price_basis": "RAW",
+        }
+        raw_hash = hashlib.sha256(
+            json.dumps(
+                row,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+
+        return (
+            Evidence(
+                evidence_id=f"tpex:{trade_date.isoformat()}:{request.symbol}:ohlcv",
+                symbol=request.symbol,
+                evidence_type="OHLCV",
+                source=self.metadata.source,
+                source_record_id=f"{trade_date.isoformat()}:{request.symbol}",
+                event_time=event_time,
+                published_at=observed_at,
+                observed_at=observed_at,
+                effective_at=event_time,
+                content_hash=raw_hash,
+                revision_id=f"tpex-daily-close:{raw_hash[:16]}",
+                status=EvidenceStatus.RAW,
+                payload=normalized,
+            ),
+        )

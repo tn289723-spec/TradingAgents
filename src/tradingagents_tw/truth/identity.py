@@ -27,7 +27,7 @@ def _normalize(value: Any) -> Any:
     return value
 
 
-def _canonical_json(value: Any) -> str:
+def canonical_identity_json(value: Any) -> str:
     try:
         return json.dumps(
             _normalize(value),
@@ -40,7 +40,7 @@ def _canonical_json(value: Any) -> str:
 
 
 def _sha256(value: Any) -> str:
-    return hashlib.sha256(_canonical_json(value).encode("utf-8")).hexdigest()
+    return hashlib.sha256(canonical_identity_json(value).encode("utf-8")).hexdigest()
 
 
 def derive_config_hash(config: Mapping[str, Any]) -> str:

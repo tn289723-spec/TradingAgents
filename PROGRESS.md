@@ -1,67 +1,71 @@
 # TradingAgents-TW v0.1 Progress
 
-## Baseline
-First V0.1 core batch merged to `main`:
-`b4ffebcfcc6c9200850a9b2d7f8824f4a0d193cf`
+## Merged baselines
+- Batch 1 core invariants: `b4ffebcfcc6c9200850a9b2d7f8824f4a0d193cf`
+- Batch 2 Truth hardening: `d7837457b3f9ed579984ef30bae213b5eed831e2`
 
 ## Current checkpoint
-Branch: `codex/v0.1-truth-state-2`
-Issue: #3
+Branch: `codex/v0.1-replay-ingestion`
+Issue: #5
 
-### Completed in batch 2
-- Truth-owned Provider Output Boundary:
-  - provider capability check
-  - source identity check
-  - symbol check
-  - evidence-type check
-  - duplicate evidence-id check
-  - provider output must enter Truth as RAW
-  - Point-in-Time cutoff enforcement
-- Corporate Action deterministic back-adjustment:
-  - explicit `BACK_ADJUST_MULTIPLICATIVE_V1`
-  - RAW input required
-  - adjusted output carries `adjustment_as_of`
-  - only actions with `event_date <= adjustment_as_of` affect prices
-  - known future actions remain Evidence but do not alter current prices early
-  - volume remains as reported
-- Trend state-machine transition tests now cover all 8 TrendState values.
-- TruthSnapshot deterministic identity:
-  - SHA-256 `content_hash`
-  - SHA-256 `config_hash`
-  - Evidence order canonicalized
-  - datetimes canonicalized to UTC before hashing
-  - equivalent UTC / Asia-Taipei instants produce the same snapshot identity
-- First official Taiwan market provider:
-  - `TWSEStockDayAllAdapter`
-  - official endpoint: `https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL`
-  - capability explicitly marked `LATEST_ONLY`
-  - provider emits RAW Evidence only
-  - conservative `published_at = observed_at`
-  - latest-only adapter refuses historical replay after the requested cutoff
-  - ROC and Gregorian date parsing supported
+### Completed in batch 3
+- Immutable content-addressed TruthSnapshot persistence:
+  - snapshot objects keyed by `content_hash`
+  - snapshot IDs are immutable refs
+  - refs use exclusive create to prevent concurrent last-writer-wins
+  - same content can be de-duplicated across multiple snapshot IDs
+  - persisted object tampering fails closed
+- Deterministic configuration persistence:
+  - config stored separately by `config_hash`
+  - replay validates config hash
+  - config tampering fails closed
+  - replay no longer depends on today's defaults
+- Post-market ingestion orchestration:
+  - Provider → Provider Boundary → RAW Evidence
+  - Truth owns RAW → VERIFIED promotion
+  - VERIFIED Evidence → TruthSnapshot → immutable Store
+  - empty provider result cannot produce a PASS snapshot
+  - replay has no live-provider dependency
+- Official TPEx OHLCV adapter:
+  - endpoint: `https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes`
+  - explicitly `LATEST_ONLY`
+  - raw OHLCV / shares / value / transaction count normalization
+  - ROC/Gregorian date parsing
+- Official TWSE Corporate Action announcement adapter:
+  - endpoint: `https://openapi.twse.com.tw/v1/exchangeReport/TWT48U_ALL`
+  - explicitly `LATEST_ONLY`
+  - current rolling ex-right/ex-dividend announcement Evidence
+  - pending values remain `None`, never silently converted to zero
+  - announcement adapter does not invent adjustment factors
+- Adjusted PriceSeries → deterministic State:
+  - State rejects RAW prices
+  - 60-bar adjusted basis required for current Trend inputs
+  - MA20 / MA60 / 20D volume ratio derived deterministically
+  - replay fixture locks expected input values and Trend state
 
 ### Verification
 Latest implementation HEAD:
-`e1000bb03287f326f415ee1fc02f360707907ac3`
+`8d76e94116ab68d683055f16ef4d2de85a0dc7fb`
 
-GitHub Actions run #27:
+GitHub Actions run #35:
 - Python 3.11: PASS
 - Python 3.12: PASS
 - Compile: PASS
-- Pytest: **43 / 43 PASS**
-- Runtime: 0.23s on Python 3.11
+- Pytest: **53 / 53 PASS**
+- Runtime: 0.30s on Python 3.11
 
-### Important GPT review corrections
-1. Future `effective_at` is not automatically lookahead when the event was already published/observed.
-2. Known future Corporate Actions must not modify today's adjusted price series before their event date.
-3. Snapshot identity must normalize equivalent timezone representations to one UTC canonical instant.
+### GPT review corrections in batch 3
+1. Replay must persist actual deterministic config, not only its hash.
+2. Snapshot IDs must remain immutable even under concurrent writers.
+3. Replay must detect both Truth-object tampering and config tampering.
+4. Official rolling/latest endpoints are not allowed to masquerade as historical replay.
 
 ## Next atomic tasks
-1. Add TruthSnapshot persistence/replay store contract.
-2. Add post-market ingestion orchestration around Provider → Truth Boundary → Snapshot.
-3. Add TPEx official OHLCV adapter behind the same Provider contract.
-4. Add official Corporate Action source adapter behind Truth.
-5. Feed adjusted PriceSeries into the deterministic State engine with replay fixtures.
+1. Add a market/source registry so TWSE vs TPEx selection is deterministic and auditable.
+2. Add official trading-calendar contract and post-market cutoff policy.
+3. Add historical official OHLCV adapters needed to bootstrap 60-bar State without future leakage.
+4. Add Corporate Action announcement → adjustment-factor derivation contract using point-in-time pre-event prices.
+5. Build a full TruthSnapshot → adjusted PriceSeries → Trend replay golden scenario for one listed and one OTC fixture.
 
 ## Rule
-Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion until V0.1 Truth/State replay path is complete.
+Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion until the V0.1 Truth/State historical replay path is complete.
