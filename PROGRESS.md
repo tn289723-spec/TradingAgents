@@ -162,3 +162,13 @@ Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion unti
 - Added synthetic end-to-end tests for TWSE/TPEx and fail-closed adversarial cases. **No production attestor or genuine historical completeness is claimed.**
 - Validation ledger: branch CI SHA c1d6bc460d83c21d400de3e9d544b2ed7ea293bc failed 2/148 only on wrong-key expected error string (Python 3.11; 3.12 cancelled). Root cause: wrong but well-formed pinned key correctly fails signature verification, not key-presence check. Failure count 1; corrected exact negative assertion; next new SHA gets one branch gate. Do not rerun successful PR #11 gates.
 - Next: verify branch CI once; if green open PR -> PR CI -> merge -> main CI. Then provision real independent attestor/archive capture before claiming live PIT; proceed with DailyReport and mobile-first Web on separately gated work.
+
+## 2026-10-24 — Atomic batch D: DailyReport binding + read-only dashboard projection
+- Base main: `656c17458562758cd7c6f26d5e56110254112555` (PR #12 merged, 148/148 Python 3.11/3.12).
+- Branch: `codex/v0.1-dailyreport-projection`.
+- Added fail-closed TruthSnapshot/StateSnapshot identity and config binding for DailyReport, with explicit supplied confidence (no LLM inference or recomputation).
+- Added versioned read-only DashboardProjection and deterministic JSON output. Green/yellow/red reflect **evidence readiness only**, never buy/sell direction.
+- Five-day score slope is separate from five-day change; unavailable five-day change, thesis and "most likely wrong" stay null/not assessed. Report alone cannot certify live historical PIT.
+- Synthetic fixtures verify lineage rejection, tampering, cutoff, gate semantics, missing fields and deterministic serialization.
+- Verification checkpoint: pending first Branch CI for the new SHA. Do not rerun PR #12 gates. Failure counter for this new point starts at 0.
+- Next: PR gate → merge → main gate if branch green. Then Mobile-First Web UI reading projection JSON only. Issue #9 remains OPEN pending independent real-world PIT attestor and complete capture evidence.
