@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="TradingAgents-TW 台股證據與狀態儀表板，僅讀取正式 DashboardProjection。">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>TradingAgents-TW｜證據儀表板</title>
+  <style>
+    :root {font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;color:#e9eef8;background:#0b101b;font-synthesis:none}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 90% 0%,#172740 0%,transparent 40%),#0b101b}
+    .shell{max-width:980px;margin:auto;padding:24px 18px 70px}
+    header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:25px}
+    .eyebrow{font-size:.72rem;letter-spacing:.18em;color:#8ba9cc;font-weight:700}
+    h1{font-size:clamp(1.45rem,4vw,2.2rem);margin:8px 0 5px;letter-spacing:.02em}
+    .sub{font-size:.88rem;color:#a9b6cb;margin:0;line-height:1.6}
+    .badge{border:1px solid #456080;color:#b8d3f5;border-radius:999px;padding:8px 12px;white-space:nowrap;font-size:.73rem}
+    .card{border:1px solid #2b3950;background:#141e2d;border-radius:18px;padding:21px;margin-bottom:16px;box-shadow:0 12px 35px #05070c33}
+    .top{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap}
+    h2{font-size:1rem;letter-spacing:.04em;margin:0 0 14px;color:#d7e7ff}
+    #status{border-radius:12px;padding:14px 16px;background:#37202a;color:#ffc5ce;font-size:.95rem;line-height:1.6;font-weight:700}
+    #status[data-level="PASS"]{background:#15362d;color:#91f4c4}
+    #status[data-level="DEGRADED"]{background:#40351b;color:#ffe39c}
+    #status[data-level="BLOCKED"]{background:#37202a;color:#ffc5ce}
+    .upload{display:inline-flex;align-items:center;gap:10px;padding:12px 15px;background:#273f5f;border:1px solid #4c729d;border-radius:12px;color:#e8f2ff;font-size:.9rem;cursor:pointer}
+    input[type=file]{width:100%;max-width:290px;color:#bdcde2;font-size:.82rem}
+    input[type=file]::file-selector-button{border:1px solid #597ba6;border-radius:8px;padding:9px;background:#213753;color:#e9f1ff;margin-right:10px;cursor:pointer}
+    .notice{margin:12px 0 0;color:#a9b6cb;font-size:.82rem;line-height:1.65}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .metric{border:1px solid #2d425e;border-radius:14px;padding:17px;background:#101a2a;min-width:0}
+    .label{font-size:.78rem;color:#a2b4d0;margin-bottom:9px}
+    .value{font-size:clamp(1.12rem,3.4vw,1.8rem);font-weight:800;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+    .small{font-size:1rem}
+    dl{display:grid;grid-template-columns:minmax(90px,170px) 1fr;gap:11px;margin:0;font-size:.9rem;line-height:1.55}
+    dt{color:#a3b7d1}dd{margin:0;overflow-wrap:anywhere}
+    .caution{border-left:4px solid #e9c477;padding:12px 14px;background:#28281f;color:#f4dfa7;font-size:.85rem;line-height:1.7;border-radius:0 9px 9px 0}
+    .footer{color:#8498b6;font-size:.78rem;line-height:1.65}
+    @media(min-width:760px){.shell{padding:42px 34px 80px}.grid{grid-template-columns:repeat(4,minmax(0,1fr))}.card{padding:26px}}
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+  </style>
+  <script type="module" src="./dashboard.mjs"></script>
+</head>
+<body>
+<main class="shell">
+  <header>
+    <div><div class="eyebrow">TRADINGAGENTS · TAIWAN</div><h1>台股證據儀表板</h1>
+    <p class="sub">只呈現上游正式投影，不在瀏覽器重新計算市場判斷。</p></div>
+    <span class="badge">READ-ONLY · V0.1</span>
+  </header>
+  <section class="card" aria-labelledby="source-heading">
+    <h2 id="source-heading">資料來源</h2>
+    <div class="top">
+      <p class="sub">預設讀取同站 <code>projection.json</code>；沒有正式資料時維持阻擋。</p>
+      <label class="upload" for="projection-file">匯入正式 JSON
+        <input id="projection-file" type="file" accept=".json,application/json" aria-label="匯入 DashboardProjection JSON">
+      </label>
+    </div>
+    <p class="notice">本機匯入只檢查格式與一致性，無法獨立驗證來源簽章；請勿將自行製作的 JSON 視為真實市場證據。</p>
+  </section>
+  <section class="card" aria-labelledby="readiness-heading">
+    <h2 id="readiness-heading">證據就緒度</h2>
+    <div id="status" data-level="BLOCKED" role="status" aria-live="polite">尚未取得可信投影資料。</div>
+    <p class="notice">🟢／🟡／🔴 僅表示資料證據閘門狀態，不代表看多、看空或交易建議。</p>
+  </section>
+  <div id="data" hidden>
+    <section class="card" aria-labelledby="overview-heading">
+      <h2 id="overview-heading">市場狀態</h2>
+      <div class="grid">
+        <div class="metric"><div class="label">Directional Score</div><div class="value" id="score"></div></div>
+        <div class="metric"><div class="label">Trend State</div><div class="value small" id="trend"></div></div>
+        <div class="metric"><div class="label">Confidence</div><div class="value" id="confidence"></div></div>
+        <div class="metric"><div class="label">Decision Gate</div><div class="value small" id="gate"></div></div>
+      </div>
+      <p class="notice">方向分數不是機率；Confidence 是上游提供的分數，本站不推導。</p>
+    </section>
+    <section class="card" aria-labelledby="context-heading">
+      <h2 id="context-heading">變化與判斷限制</h2>
+      <dl>
+        <dt>五日分數斜率</dt><dd id="slope"></dd>
+        <dt>五日變化</dt><dd id="change"></dd>
+        <dt>Thesis 狀態</dt><dd id="thesis"></dd>
+        <dt>最可能看錯</dt><dd id="wrong"></dd>
+        <dt>歷史 PIT</dt><dd id="pit"></dd>
+        <dt>限制與風險</dt><dd id="limitations"></dd>
+      </dl>
+    </section>
+    <section class="card" aria-labelledby="provenance-heading">
+      <h2 id="provenance-heading">資料來源識別</h2>
+      <dl>
+        <dt>股票代號</dt><dd id="symbol"></dd>
+        <dt>交易日期</dt><dd id="trade-date"></dd>
+        <dt>產生時間</dt><dd id="generated-at"></dd>
+        <dt>分析批次</dt><dd id="run-id"></dd>
+        <dt>Truth Snapshot</dt><dd id="snapshot-id"></dd>
+      </dl>
+    </section>
+  </div>
+  <aside class="caution" role="note">此系統僅供研究與避免決策錯誤。尚未取得獨立完整的真實歷史 PIT 證據認證，不提供買賣訊號，也不會使用模擬資料偽裝成即時資料。</aside>
+  <p class="footer">TradingAgents-TW · 資料閘門 Fail-Closed · 瀏覽器不儲存匯入檔案</p>
+</main>
+</body>
+</html>
