@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, localcontext
 
 from tradingagents_tw.contracts import CorporateAction, PriceBar, PriceBasis, PriceSeries
 
@@ -10,7 +10,9 @@ BACK_ADJUSTMENT_METHOD = "BACK_ADJUST_MULTIPLICATIVE_V1"
 
 
 def _scaled(value: float, factor: Decimal) -> float:
-    return float(Decimal(str(value)) * factor)
+    with localcontext() as ctx:
+        ctx.prec = 34
+        return float(Decimal(str(value)) * factor)
 
 
 def apply_back_adjustments(
@@ -51,7 +53,9 @@ def apply_back_adjustments(
         factor = Decimal("1")
         for action in effective_actions:
             if bar.trade_date < action.event_date:
-                factor *= Decimal(str(action.adjustment_factor))
+                with localcontext() as ctx:
+                    ctx.prec = 34
+                    factor *= Decimal(str(action.adjustment_factor))
 
         adjusted.append(
             PriceBar(
