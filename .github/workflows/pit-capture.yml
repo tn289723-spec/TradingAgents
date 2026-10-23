@@ -44,7 +44,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- data/pit/feed-observations data/pit/poll-records
+          # The first failed fetch has a poll error receipt but no feed observation.
+          # Stage the audit root so an absent success directory cannot hide failure.
+          git add -A -- data/pit
           if ! git diff --cached --quiet; then
             git commit -m "evidence: append prospective TWSE poll receipt"
             git push origin HEAD:pit-capture

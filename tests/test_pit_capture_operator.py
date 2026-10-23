@@ -167,3 +167,35 @@ def test_audit_error_receipt_never_counts_as_healthy(tmp_path):
     audit = audit_poll_health(tmp_path, as_of=BASE + timedelta(hours=1))
     assert audit["status"] == "GAP_OR_FAILURE"
     assert audit["coverage"] == "UNATTESTED"
+
+
+def test_workflow_persists_first_failed_poll_without_feed_observation(tmp_path):
+    """A first-ever failed fetch must still be stageable for the audit branch."""
+    import subprocess
+    from pathlib import Path
+
+    archive_root = tmp_path / "data" / "pit"
+    failed = capture_poll(
+        archive_root, fetch_bytes=lambda: b"{}",
+        clock=ticks(BASE, BASE + timedelta(seconds=1),
+                    BASE + timedelta(seconds=2), BASE + timedelta(seconds=3)),
+    )
+    assert failed.outcome == "ERROR"
+    assert not list((archive_root / "feed-observations").glob("*.json"))
+
+    workflow = (Path(__file__).resolve().parents[1]
+                / ".github" / "workflows" / "pit-capture.yml").read_text(
+                    encoding="utf-8"
+                )
+    staging_command = "git add -A -- data/pit"
+    assert staging_command in workflow
+
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    (tmp_path / "unrelated.txt").write_text("not evidence", encoding="utf-8")
+    subprocess.run(["bash", "-e", "-c", staging_command], cwd=tmp_path, check=True)
+    staged = subprocess.check_output(
+        ["git", "diff", "--cached", "--name-only"], cwd=tmp_path, text=True
+    ).splitlines()
+    assert staged == [
+        f"data/pit/poll-records/{failed.poll_hash}.json"
+    ]

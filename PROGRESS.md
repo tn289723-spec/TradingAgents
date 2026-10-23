@@ -218,3 +218,12 @@ Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion unti
 - Status `NO_BASELINE`, `STALE`, `GAP_OR_FAILURE`, or `RECENT_UNATTESTED` always includes `coverage=UNATTESTED`; audit cannot establish independent publication/revision completeness.
 - Tests cover missing baseline, stale clock, recovered but historically gapped chain, corrupt/missing raw receipt, invalid clocks and failure receipts.
 - Next: one Branch CI on this new commit; if green, PR CI -> merge -> main CI. Observe first actual scheduled TWSE capture only when it occurs; do not trigger unauthorized/manual duplicate capture. Issue #14 deployment blockers unchanged.
+
+
+## 2026-10-24 — Issue #9 atomic batch J: preserve first failed scheduled poll (pending gates)
+- Base main: `191a647ddaeca200d959b77d2347d9ddcf2d5270` (PR #19 main CI 40030466128 PASS; not rerun).
+- Identified a real workflow pathspec failure: on the very first unsuccessful TWSE fetch, `poll-records/` has an ERROR receipt but `feed-observations/` contains no files; `git add -- data/pit/feed-observations data/pit/poll-records` aborts and can prevent the error receipt from reaching `pit-capture`.
+- Changed staging to `git add -A -- data/pit`; synthetic regression initializes a fresh Git repository, simulates a first failed poll, and asserts only the error receipt is staged, not unrelated files.
+- This fixes *audit persistence only*. No successful real poll, independent attestor, historical PIT coverage, Pages deployment, or production projection is claimed.
+- Gate plan: one Branch CI on implementation SHA -> PR CI -> merge -> main CI; observe the first real 19:17 Asia/Taipei scheduled poll separately after it actually occurs. Do not retry blocked Pages/Cloudflare writes without changed permissions.
+- Retry count for this newly identified failure point: 0 before implementation; no prior SHA/gate reruns.
