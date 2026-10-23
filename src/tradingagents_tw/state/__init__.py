@@ -1,3 +1,4 @@
+from .price_inputs import derive_trend_inputs, evaluate_trend_from_prices
 from .score import (
     ScoreConfig,
     V0_1_SCORE_CONFIG,
