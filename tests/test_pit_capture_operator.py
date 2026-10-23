@@ -99,3 +99,16 @@ def test_append_requires_current_predecessor(tmp_path):
     with pytest.raises(ValueError, match="extend current chain"):
         AppendOnlyPollJournal(tmp_path).append(first)
     assert second == AppendOnlyPollJournal(tmp_path).latest()
+
+
+def test_missing_or_tampered_feed_receipt_blocks_success_journal(tmp_path):
+    record = success(tmp_path, BASE)
+    journal = AppendOnlyPollJournal(tmp_path)
+    receipt_path = tmp_path / "feed-observations" / (record.observation_hash + ".json")
+    original = receipt_path.read_text(encoding="utf-8")
+    receipt_path.unlink()
+    with pytest.raises(FileNotFoundError):
+        journal.latest()
+    receipt_path.write_text(original.replace('"body_sha256":"', '"body_sha256":"bad'), encoding="utf-8")
+    with pytest.raises(ValueError):
+        journal.latest()

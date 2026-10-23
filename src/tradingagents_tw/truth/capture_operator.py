@@ -100,8 +100,20 @@ class AppendOnlyPollJournal:
             raise ValueError("poll identity mismatch")
         return record
 
+    def _verify_success_receipt(self, record: PollRecord) -> None:
+        if record.outcome != "SUCCESS":
+            return
+        observation = AppendOnlyFeedArchive(self.objects.parent).read(
+            record.observation_hash
+        )
+        if not (record.started_at <= observation.started_at
+                <= observation.observed_at <= record.finished_at):
+            raise ValueError("poll observation clock mismatch")
+
     def latest(self) -> PollRecord | None:
         records = [self.read(path.stem) for path in self.objects.glob("*.json")]
+        for record in records:
+            self._verify_success_receipt(record)
         records.sort(key=lambda r: (r.started_at, r.finished_at, r.poll_hash))
         for index, record in enumerate(records):
             prior = records[index - 1] if index else None
@@ -113,6 +125,7 @@ class AppendOnlyPollJournal:
 
     def append(self, record: PollRecord) -> str:
         PollRecord.model_validate(record.model_dump(mode="json"))
+        self._verify_success_receipt(record)
         prior = self.latest()
         if (record.previous_poll_hash != (prior.poll_hash if prior else None)
                 or record.previous_finished_at != (prior.finished_at if prior else None)
