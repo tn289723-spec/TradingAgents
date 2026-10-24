@@ -1,0 +1,36 @@
+name: Prospective PIT capture health (unattested)
+
+on:
+  schedule:
+    # 09:00 Asia/Taipei, after the previous 19:17 capture window.
+    # If yesterday's capture was skipped, the last good poll is >30h old.
+    # GitHub schedule is best-effort; a skipped health run is not proof of health.
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prospective-pit-health-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout verified auditor
+        uses: actions/checkout@v4
+      - name: Checkout prospective evidence branch
+        uses: actions/checkout@v4
+        with:
+          ref: pit-capture
+          path: pit-archive
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install verified auditor
+        run: python -m pip install -e .
+      - name: Verify receipt chain and poll freshness (never PIT completeness)
+        run: python -m tradingagents_tw.truth.capture_operator --archive-root pit-archive/data/pit --audit-only
