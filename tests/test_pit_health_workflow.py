@@ -18,6 +18,12 @@ def test_scheduled_health_gate_is_read_only_and_fail_closed():
     assert "python -m pip install -e ." in workflow
     assert ("--archive-root pit-archive/data/pit --audit-only"
             in workflow)
+    # A failed TWSE audit must not skip the independent TPEx audit.
+    tpex_step = workflow.split(
+        "      - name: Verify TPEx receipt chain and poll freshness", 1
+    )[1]
+    assert "if: \u0024{{ !cancelled() }}" in tpex_step
+    assert "tradingagents_tw.truth.tpex_capture_operator" in tpex_step
     assert "continue-on-error:" not in workflow
     assert "|| true" not in workflow
     assert "git push" not in workflow
