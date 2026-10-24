@@ -227,3 +227,13 @@ Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion unti
 - This fixes *audit persistence only*. No successful real poll, independent attestor, historical PIT coverage, Pages deployment, or production projection is claimed.
 - Gate plan: one Branch CI on implementation SHA -> PR CI -> merge -> main CI; observe the first real 19:17 Asia/Taipei scheduled poll separately after it actually occurs. Do not retry blocked Pages/Cloudflare writes without changed permissions.
 - Retry count for this newly identified failure point: 0 before implementation; no prior SHA/gate reruns.
+
+
+## 2026-10-24 — Issue #9 atomic batch K: scheduled prospective health gate (pending gates)
+- Base main: `5e58b0b442013f71e29c785bfecfe5768b828534` (PR #20 merged; Branch/PR/main CI PASS; do not rerun).
+- Branch: `codex/v0.1-pit-scheduled-health-gate`.
+- Add separate daily 09:00 Asia/Taipei GitHub Actions health audit of `pit-capture` evidence using the existing deterministic `--audit-only` verifier. It checks the entire receipt chain and source bytes, catches a missed 19:17 poll after the previous healthy day exceeds the 30h freshness threshold, and retains earlier gap/failure status.
+- Workflow has read-only repository permission, no evidence push, no bundled market projection, and a manual audit trigger. Missing baseline, stale data, corrupt receipts, or prior failures fail the job; `RECENT_UNATTESTED` is only operational freshness, **not independent historical PIT coverage**. GitHub schedule remains best-effort and may itself be skipped.
+- Added static regression checks for cron, evidence branch, no write token, fail-closed audit invocation, and the 30h threshold relationship.
+- Validation ledger: new batch K point starts at 0 failures. Run Branch CI once on its final SHA, then PR CI -> merge -> main CI; never rerun a successful SHA/gate.
+- First real TWSE scheduled capture is still pending at 19:17 Asia/Taipei; do not manually fabricate a poll or claim `pit-capture` has live receipts. Independent attestor, real historical publication/revision completeness, TPEx prospective source, and Issue #14 deployment remain unresolved.
