@@ -47,7 +47,10 @@ def test_empty_feed_is_unattested_observation(tmp_path):
 
 
 @pytest.mark.parametrize("body", [
-    b"", b"not-json", b"{}", b"[1]", b"\xff", b"x" * (MAX_RESPONSE_BYTES + 1),
+    b"", b"not-json", b"{}", b"[1]",
+    b"[{}]", b'[{"error":"rate limited"}]',
+    b'[{"Code":"2330"}]', b'[{"Date":"1151024"}]',
+    b'[{"Code":null,"Date":"1151024"}]', b"\xff", b"x" * (MAX_RESPONSE_BYTES + 1),
 ])
 def test_invalid_feed_does_not_write_receipt(tmp_path, body):
     archive = AppendOnlyFeedArchive(tmp_path)

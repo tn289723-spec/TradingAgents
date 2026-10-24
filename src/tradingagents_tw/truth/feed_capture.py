@@ -39,6 +39,13 @@ def _check_body(body: bytes) -> None:
         raise ValueError("official feed is not valid UTF-8 JSON") from exc
     if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
         raise ValueError("official feed must be a JSON array of objects")
+    # An upstream JSON error envelope must not become a SUCCESS receipt.
+    # Empty [] remains an unattested observation, not no-action proof.
+    for row in rows:
+        for field in ("Code", "Date"):
+            value = row.get(field)
+            if type(value) not in (str, int) or not str(value).strip():
+                raise ValueError(f"official feed row missing valid {field}")
 
 
 class FeedObservation(StrictModel):
