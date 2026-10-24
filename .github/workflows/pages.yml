@@ -1,3 +1,4 @@
+# Pages source enabled in repository settings; this file change triggers the first deployment after enablement.
 name: Deploy mobile dashboard (GitHub Pages)
 
 on:
