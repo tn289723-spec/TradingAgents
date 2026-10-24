@@ -157,3 +157,72 @@ def test_scheduled_workflow_captures_and_audits_both_sources():
     assert "tradingagents_tw.truth.capture_operator" in health
     assert "tradingagents_tw.truth.tpex_capture_operator" in health
     assert "contents: write" not in health
+
+
+@pytest.mark.parametrize("twse_ok,tpex_ok", [
+    (True, True), (True, False), (False, True), (False, False),
+])
+def test_first_dual_source_poll_persists_both_outcomes_without_unrelated_files(
+    tmp_path, twse_ok, tpex_ok,
+):
+    """An independent source failure must not erase either audit receipt.
+
+    Exercise the actual bounded Git staging path used by the scheduled workflow.
+    Synthetic responses are only transport fixtures, never PIT coverage proof.
+    """
+    import subprocess
+
+    archive_root = tmp_path / "data" / "pit"
+    twse = capture_poll(
+        archive_root,
+        fetch_bytes=lambda: b"[]" if twse_ok else b"{}",
+        clock=lambda: BASE,
+    )
+    tpex = capture_tpex_poll(
+        archive_root,
+        fetch_bytes=lambda: body() if tpex_ok else b"{}",
+        clock=lambda: BASE + timedelta(minutes=1),
+    )
+
+    assert twse.outcome == ("SUCCESS" if twse_ok else "ERROR")
+    assert tpex.outcome == ("SUCCESS" if tpex_ok else "ERROR")
+    assert audit_tpex_poll_health(
+        archive_root, as_of=BASE + timedelta(hours=1)
+    )["status"] == ("RECENT_UNATTESTED" if tpex_ok else "GAP_OR_FAILURE")
+
+    from tradingagents_tw.truth.capture_operator import audit_poll_health
+    assert audit_poll_health(
+        archive_root, as_of=BASE + timedelta(hours=1)
+    )["status"] == ("RECENT_UNATTESTED" if twse_ok else "GAP_OR_FAILURE")
+
+    workflow = (
+        Path(__file__).resolve().parents[1]
+        / ".github" / "workflows" / "pit-capture.yml"
+    ).read_text(encoding="utf-8")
+    assert workflow.index("Persist immutable receipts") < workflow.index(
+        "Surface failed observations after audit persistence"
+    )
+    assert "git add -A -- data/pit" in workflow
+
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    (tmp_path / "unrelated.txt").write_text("do not stage", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "-A", "--", "data/pit"], cwd=tmp_path, check=True
+    )
+    staged = set(subprocess.check_output(
+        ["git", "diff", "--cached", "--name-only"],
+        cwd=tmp_path, text=True,
+    ).splitlines())
+    expected = {
+        f"data/pit/poll-records/{twse.poll_hash}.json",
+        f"data/pit/tpex-poll-records/{tpex.poll_hash}.json",
+    }
+    if twse_ok:
+        expected.add(
+            f"data/pit/feed-observations/{twse.observation_hash}.json"
+        )
+    if tpex_ok:
+        expected.add(
+            f"data/pit/tpex-feed-observations/{tpex.observation_hash}.json"
+        )
+    assert staged == expected
