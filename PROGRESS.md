@@ -293,3 +293,13 @@ Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion unti
 - Daily read-only health workflow requires both TWSE and TPEx audit chains to be recent and internally valid. Neither green status is independent publication/revision completeness proof.
 - This source contract is corroborated by the official TPEx ex-right/ex-dividend preview dataset and multiple public OpenAPI schema captures; no historical timestamps are backdated and no live response is bundled into source control.
 - Validation ledger: new batch Q point starts at 0 failures. One Branch CI on the final SHA -> PR CI -> merge -> main CI. Do not rerun unchanged gates.
+
+
+## 2026-10-24 — Issue #9 atomic batch R: dual-source first-poll persistence regression (pending gates)
+- Base main: `dd7538cfd0f23f2d3b0a0d8cf80f5f9597a3685b` (PR #27 merged; Branch/PR/main CI PASS; no reruns).
+- Branch: `codex/v0.1-dual-source-poll-persistence-test`.
+- Added four deterministic dual-source first-run cases (TWSE/TPEx both SUCCESS, either source ERROR, both ERROR), checking each independent audit state, both immutable poll receipts, optional raw feed receipts, and Git's bounded `data/pit` staging without unrelated files.
+- Assert the workflow persists audit receipts before surfacing an observation failure. This guards the first real 19:17 dual-source scheduled capture without changing live capture, source schema, evidence contracts or deployment.
+- Tests are synthetic transport fixtures, NOT real PIT evidence or historical completeness proof. Independent production attestor and pre-capture historical publication/revision coverage remain unavailable.
+- New validation point: 0 failures before first Branch CI. One Branch CI for final SHA → PR CI → merge → main CI; no unchanged-SHA or equivalent gate reruns.
+- First actual scheduled dual-source capture remains due 2026-10-24 19:17 Asia/Taipei. Afterwards inspect the real workflow, pit-capture SHA and both chains exactly once.
