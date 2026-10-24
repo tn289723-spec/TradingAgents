@@ -130,3 +130,41 @@ test("accept pinned signed PIT attestation status without changing evidence ligh
   assert.equal(parsed.traffic_light, "GREEN");
   assert.equal(parsed.traffic_light_meaning, "EVIDENCE_READINESS_ONLY");
 });
+
+test("local import cannot claim verified PIT or green readiness from JSON alone", async () => {
+  const nodes = new Map();
+  const getNode = (id) => {
+    if (!nodes.has(id)) nodes.set(id, {
+      hidden: false, dataset: {}, textContent: "", files: null,
+      addEventListener(_type, fn) { this.change = fn; }
+    });
+    return nodes.get(id);
+  };
+  const previousDocument = globalThis.document;
+  const previousFetch = globalThis.fetch;
+  globalThis.document = { getElementById: getNode };
+  globalThis.fetch = async () => ({ ok: false });
+  try {
+    await mountDashboard();
+    const input = getNode("projection-file");
+    input.files = [{
+      size: 512,
+      text: async () => JSON.stringify(changed({
+        historical_pit_certification: "SIGNED_PIT_V1_ATTESTATION_VERIFIED",
+        decision_gate: "PASS", traffic_light: "GREEN"
+      }))
+    }];
+    await input.change();
+    assert.equal(getNode("data").hidden, false);
+    assert.equal(getNode("score").textContent, "60");
+    assert.equal(getNode("status").dataset.level, "BLOCKED");
+    assert.match(getNode("status").textContent, /本機匯入未驗證來源/);
+    assert.match(getNode("pit").textContent, /未驗證簽章/);
+    assert.doesNotMatch(getNode("pit").textContent, /已通過 SIGNED_PIT_V1/);
+  } finally {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
