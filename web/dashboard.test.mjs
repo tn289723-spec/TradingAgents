@@ -121,3 +121,12 @@ test("latest file selection wins over delayed initial fetch and earlier imports"
     else globalThis.fetch = previousFetch;
   }
 });
+
+test("accept pinned signed PIT attestation status without changing evidence light semantics", () => {
+  const parsed = validateProjection(changed({
+    historical_pit_certification: "SIGNED_PIT_V1_ATTESTATION_VERIFIED"
+  }));
+  assert.equal(parsed.historical_pit_certification, "SIGNED_PIT_V1_ATTESTATION_VERIFIED");
+  assert.equal(parsed.traffic_light, "GREEN");
+  assert.equal(parsed.traffic_light_meaning, "EVIDENCE_READINESS_ONLY");
+});
