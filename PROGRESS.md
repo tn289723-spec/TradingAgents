@@ -318,3 +318,12 @@ Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion unti
 - Require the six frozen component identities/weights/normalization, score version and recomputed aggregate before emitting an attested DashboardProjection. Reject duplicate components, mismatched arithmetic or unknown version; no new score formula or weights, no LLM Judgment.
 - Regression uses synthetic signed fixtures to reject forged aggregate, weights, normalization, version and duplicate components. These tests do NOT attest real market data, component-input provenance, confidence, or historical completeness; the Web remains BLOCKED without a trusted production projection.
 - One Branch CI on final implementation SHA -> PR CI -> merge -> main CI, no same-SHA reruns. New failure point count 0. First actual 19:17 Asia/Taipei TWSE/TPEx capture still pending; afterwards inspect the scheduled run, pit-capture SHA and independent receipts. No manual duplicate capture or deployment gate rerun.
+
+## 2026-10-24 — Issue #9 atomic batch U: local Web import provenance boundary (pending gates)
+- Base main: `21861a31d772ed0a89e7e422b5acd16ef509b436` (PR #30 merged; previous Branch/PR/main CI SUCCESS, not rerun).
+- Branch: `codex/v0.1-import-provenance-warning`.
+- Defect: a user-imported arbitrary JSON could self-claim `SIGNED_PIT_V1_ATTESTATION_VERIFIED` and `PASS`, causing the mobile UI to show green readiness and "已通過" even though browser file import validates only schema and has no attestor signature verification.
+- Local imports now remain visibly `BLOCKED` / unverified-source in the status panel, regardless of embedded gate/certification claims. Numeric fields remain inspectable but are not endorsed. The PIT panel explicitly says imported claims are unverified. The published same-origin projection path retains existing behavior; no backend, Truth/State, scoring, or deployment changes.
+- Added Node regression for a locally imported JSON claiming signed PIT and PASS. This tests UI trust messaging, **not** live attestation or historical completeness.
+- New failure point starts at 0. Run one Branch CI on final SHA, then distinct PR CI, merge, main CI; no unchanged-SHA gate reruns.
+- First genuine scheduled TWSE+TPEx capture remains due 2026-10-24 19:17 Asia/Taipei. Afterwards read actual scheduled run, pit-capture SHA, both receipts and health. Production independent PIT attestor, complete historical publication/revision evidence, trusted projection.json and independent HTTPS reachability remain unresolved.
