@@ -27,7 +27,7 @@ class DashboardProjection(StrictModel):
     five_day_change: None = None
     most_likely_wrong: None = None
     thesis_status: Literal["NOT_ASSESSED"] = "NOT_ASSESSED"
-    historical_pit_certification: Literal["NOT_ESTABLISHED_BY_REPORT"] = "NOT_ESTABLISHED_BY_REPORT"
+    historical_pit_certification: Literal["NOT_ESTABLISHED_BY_REPORT", "SIGNED_PIT_V1_ATTESTATION_VERIFIED"] = "NOT_ESTABLISHED_BY_REPORT"
     limitations: tuple[str, ...] = ()
 
 

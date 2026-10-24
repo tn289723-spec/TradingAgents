@@ -2,6 +2,7 @@
 export const VERSION = "dashboard-projection-v1";
 const TRENDS = new Set(["STRONG_UPTREND","UPTREND","PULLBACK_IN_UPTREND","SIDEWAYS","REVERSAL_WATCH","DISTRIBUTION","DOWNTREND","STRONG_DOWNTREND"]);
 const LIGHTS = Object.freeze({ PASS: "GREEN", DEGRADED: "YELLOW", BLOCKED: "RED" });
+const PIT_CERTIFICATIONS = new Set(["NOT_ESTABLISHED_BY_REPORT","SIGNED_PIT_V1_ATTESTATION_VERIFIED"]);
 const FIELDS = new Set(["projection_version","analysis_run_id","snapshot_id","symbol","trade_date","generated_at","directional_score","trend_state","confidence","decision_gate","traffic_light","traffic_light_meaning","score_slope_5d","five_day_change","most_likely_wrong","thesis_status","historical_pit_certification","limitations"]);
 
 export class ProjectionError extends Error {
@@ -54,7 +55,7 @@ export function validateProjection(value) {
   requireField(value.score_slope_5d === null || (typeof value.score_slope_5d === "number" && Number.isFinite(value.score_slope_5d)), "五日斜率");
   requireField(value.five_day_change === null && value.most_likely_wrong === null, "不得推測缺失分析");
   requireField(value.thesis_status === "NOT_ASSESSED", "Thesis 尚未評估");
-  requireField(value.historical_pit_certification === "NOT_ESTABLISHED_BY_REPORT", "不得宣稱歷史 PIT 認證");
+  requireField(PIT_CERTIFICATIONS.has(value.historical_pit_certification), "歷史 PIT 認證狀態");
   requireField(Array.isArray(value.limitations) && value.limitations.length <= 100 &&
     value.limitations.every(item => typeof item === "string" && item.length <= 1000), "限制說明");
   return Object.freeze({ ...value, limitations: Object.freeze([...value.limitations]) });
@@ -90,7 +91,7 @@ function show(projection) {
   put("change", "未提供（不等同五日斜率）");
   put("thesis", "尚未評估");
   put("wrong", "尚未評估");
-  put("pit", "未經正式歷史 PIT 認證");
+  put("pit", projection.historical_pit_certification === "SIGNED_PIT_V1_ATTESTATION_VERIFIED" ? "已通過 SIGNED_PIT_V1 pinned attestor 驗證（完整性仍依賴獨立 attestor 的聲明）" : "未經正式歷史 PIT 認證");
   put("limitations", projection.limitations.length ? projection.limitations.join("；") : "未提供額外限制；歷史 PIT 仍未認證。");
   const status = document.getElementById("status");
   status.dataset.level = projection.decision_gate;

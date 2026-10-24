@@ -271,3 +271,14 @@ Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion unti
 - No source code, market data, attestor, deployment workflow or production projection changed. First genuine 2026-10-24 19:17 Asia/Taipei capture remains pending.
 - One Branch CI → PR CI → merge → main CI per new SHA; new documentation validation point failure count 0.
 - Next: inspect actual scheduled capture and `pit-capture` SHA after 19:17; independently verify Pages HTTPS reachability when available. Keep Issues #9/#14 open until real evidence and trusted projection.
+
+
+## 2026-10-24 — Issue #9 atomic batch P: attested production projection gate (pending gates)
+- Base main: `ff83d725d88087037f59d9d4de731a9b63ff228d` (release-readiness PR #25 merged; existing CI gates are reused and not rerun).
+- Branch: `codex/v0.1-attested-projection-gate`.
+- Add a fail-closed publication boundary between signed historical replay and the Web projection. The gate must call `replay_historical(require_live_pit=True)` with pinned trusted public keys before a projection may carry `SIGNED_PIT_V1_ATTESTATION_VERIFIED`.
+- Bind the supplied StateSnapshot to the verified historical replay Trend and existing Truth/config lineage before building DailyReport. Synthetic fixture mode, missing/wrong trust roots, tampered signed coverage, or State/Truth mismatch cannot produce an attested projection.
+- Ordinary `project_daily_report` remains `NOT_ESTABLISHED_BY_REPORT`; no report may self-certify PIT.
+- Web accepts exactly the two formal certification states and explains that signed attestation verification still relies on the independent attestor's completeness claim. Traffic lights remain evidence-readiness only, never buy/sell.
+- This batch does not provision a production attestor, fabricate a projection, or claim historical completeness. First real TWSE scheduled capture remains due 19:17 Asia/Taipei; TPEx prospective action capture is still separate.
+- Validation ledger: new batch P point starts at 0 failures. One Branch CI on final SHA -> PR CI -> merge -> main CI. No unchanged-SHA reruns.
