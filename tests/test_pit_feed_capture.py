@@ -19,7 +19,7 @@ def clock_sequence(*values):
 
 def test_exact_raw_bytes_and_immutable_receipt(tmp_path):
     archive = AppendOnlyFeedArchive(tmp_path)
-    raw = b'[ { "Code": "2330", "Date": "1151024" } ]'
+    raw = b'[ { "Code": "2330", "Date": "1151024", "Name": "fixture", "Exdividend": "cash" } ]'
     receipt = capture_twse_feed(
         archive, fetch_bytes=lambda: raw, clock=clock_sequence(START, END))
     assert receipt.started_at == START
@@ -37,6 +37,15 @@ def test_exact_raw_bytes_and_immutable_receipt(tmp_path):
         archive.append(receipt)
 
 
+
+def test_official_row_contract_accepts_roc_date_and_alphanumeric_symbol(tmp_path):
+    raw = b'[{"Code":"00400A","Date":"1151106","Name":"fixture","Exdividend":"cash"}]'
+    record = capture_twse_feed(
+        AppendOnlyFeedArchive(tmp_path), fetch_bytes=lambda: raw,
+        clock=clock_sequence(START, END))
+    assert record.raw_bytes() == raw
+    assert record.body_sha256
+
 def test_empty_feed_is_unattested_observation(tmp_path):
     receipt = capture_twse_feed(
         AppendOnlyFeedArchive(tmp_path), fetch_bytes=lambda: b"[]",
@@ -50,7 +59,15 @@ def test_empty_feed_is_unattested_observation(tmp_path):
     b"", b"not-json", b"{}", b"[1]",
     b"[{}]", b'[{"error":"rate limited"}]',
     b'[{"Code":"2330"}]', b'[{"Date":"1151024"}]',
-    b'[{"Code":null,"Date":"1151024"}]', b"\xff", b"x" * (MAX_RESPONSE_BYTES + 1),
+    b'[{"Code":null,"Date":"1151024"}]',
+    b'[{"Code":"2330","Date":"1151024"}]',
+    b'[{"Code":"2330","Date":"1151024","Name":"fixture"}]',
+    b'[{"Code":"2330","Date":"1151024","Name":"","Exdividend":"cash"}]',
+    b'[{"Code":"2330","Date":"1150230","Name":"fixture","Exdividend":"cash"}]',
+    b'[{"Code":"2330","Date":"115102","Name":"fixture","Exdividend":"cash"}]',
+    b'[{"Code":"2330","Date":"20261340","Name":"fixture","Exdividend":"cash"}]',
+    b'[{"Code":2330,"Date":"1151024","Name":"fixture","Exdividend":"cash"}]',
+    b"\xff", b"x" * (MAX_RESPONSE_BYTES + 1),
 ])
 def test_invalid_feed_does_not_write_receipt(tmp_path, body):
     archive = AppendOnlyFeedArchive(tmp_path)

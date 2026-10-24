@@ -11,7 +11,7 @@ import hashlib
 import json
 import os
 import re
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Callable, Literal
 from urllib.request import Request, urlopen
@@ -42,10 +42,22 @@ def _check_body(body: bytes) -> None:
     # An upstream JSON error envelope must not become a SUCCESS receipt.
     # Empty [] remains an unattested observation, not no-action proof.
     for row in rows:
-        for field in ("Code", "Date"):
+        # The official preview includes an identity, event date, name and action
+        # type. A partial/error-shaped array must not become a SUCCESS receipt.
+        for field in ("Code", "Date", "Name", "Exdividend"):
             value = row.get(field)
-            if type(value) not in (str, int) or not str(value).strip():
+            if not isinstance(value, str) or not value.strip():
                 raise ValueError(f"official feed row missing valid {field}")
+        raw_date = row["Date"].strip()
+        if re.fullmatch(r"(?:[0-9]{7}|[0-9]{8})", raw_date) is None:
+            raise ValueError("official feed row has invalid Date")
+        try:
+            if len(raw_date) == 7:
+                date(int(raw_date[:3]) + 1911, int(raw_date[3:5]), int(raw_date[5:7]))
+            else:
+                date(int(raw_date[:4]), int(raw_date[4:6]), int(raw_date[6:8]))
+        except ValueError as exc:
+            raise ValueError("official feed row has invalid Date") from exc
 
 
 class FeedObservation(StrictModel):
