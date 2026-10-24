@@ -255,3 +255,12 @@ Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion unti
 - Add deterministic invalid-row regressions; do not weaken append-only, SHA-256, PIT or replay checks. Malformed live fetch must produce an ERROR poll, not a successful observation.
 - Branch CI, PR CI, merge and main CI pending. New validation point starts at 0 failures; do not rerun prior SHA/gates. First real 19:17 Asia/Taipei capture has not occurred at this checkpoint.
 - Independent production PIT attestor, historical publication/revision completeness, TPEx prospective action feed and Web deployment remain outstanding.
+
+## 2026-10-24 — Issue #9 atomic batch N: official TWSE row/date integrity (pending gates)
+- Base main: `95328da03642c2a7b518312ef8cc302556050225` (PR #23 and its Branch/PR/main CI already SUCCESS; no reruns).
+- Branch: `codex/v0.1-pit-official-row-contract`.
+- Verified current TWSE official TWT48U_ALL response includes Code, Date (ROC 7-digit), Name and Exdividend for every nonempty row, including alphanumeric securities codes. A partially populated error-shaped row could still pass the prior Code/Date-only guard; a syntactically present but impossible date could also produce a false SUCCESS.
+- Enforce nonempty string identity/name/action type plus calendar-valid ROC/Gregorian event dates before issuing an immutable observation. Keep [] as UNATTESTED, preserve raw response bytes and SHA-256. Invalid upstream data becomes an ERROR poll, never successful PIT evidence.
+- Add deterministic valid-row, missing-field, invalid-calendar and poll-error regressions. This is schema hardening only, NOT a real live capture, independent attestor or historical publication/revision completeness proof.
+- Gate plan: one Branch CI on final SHA -> PR CI -> merge -> main CI. New point failure count 0. First actual scheduled capture remains due 2026-10-24 19:17 Asia/Taipei; observe it after the window without manual fabrication.
+- Issue #14 Pages/Cloudflare permission blockers unchanged; no deployment retries. TPEx prospective feed and real PIT attestation remain open.

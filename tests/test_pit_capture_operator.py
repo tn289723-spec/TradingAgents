@@ -57,9 +57,13 @@ def test_failed_fetch_and_missed_poll_remain_visible(tmp_path):
     assert first.poll_hash != third.poll_hash
 
 
-def test_invalid_feed_is_error_not_empty_success(tmp_path):
+@pytest.mark.parametrize("bad_body", [
+    b"{}",
+    b'[{"Code":"2330","Date":"1150230","Name":"fixture","Exdividend":"cash"}]',
+])
+def test_invalid_feed_is_error_not_empty_success(tmp_path, bad_body):
     start = BASE
-    record = capture_poll(tmp_path, fetch_bytes=lambda: b"{}",
+    record = capture_poll(tmp_path, fetch_bytes=lambda: bad_body,
                           clock=ticks(start, start + timedelta(seconds=1),
                                       start + timedelta(seconds=2),
                                       start + timedelta(seconds=3)))
