@@ -282,3 +282,14 @@ Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion unti
 - Web accepts exactly the two formal certification states and explains that signed attestation verification still relies on the independent attestor's completeness claim. Traffic lights remain evidence-readiness only, never buy/sell.
 - This batch does not provision a production attestor, fabricate a projection, or claim historical completeness. First real TWSE scheduled capture remains due 19:17 Asia/Taipei; TPEx prospective action capture is still separate.
 - Validation ledger: new batch P point starts at 0 failures. One Branch CI on final SHA -> PR CI -> merge -> main CI. No unchanged-SHA reruns.
+
+
+## 2026-10-24 — Issue #9 atomic batch Q: TPEx prospective action capture (pending gates)
+- Base main: `dd5dea31e90010a862b995af2574461b43db5d0e` (batch P merged; successful gates are reused, not rerun).
+- Branch: `codex/v0.1-tpex-prospective-capture`.
+- Add official TPEx OpenAPI prospective source `https://www.tpex.org.tw/openapi/v1/tpex_exright_prepost` with exact raw-byte SHA-256 receipts. Non-empty rows must provide valid `ExRrightsExDividendDate`, `SecuritiesCompanyCode`, `CompanyName`, `ExRrightsExDividend` and the four official term fields; empty [] remains UNATTESTED.
+- TPEx uses independent `tpex-feed-observations/` and `tpex-poll-records/` chains. It never shares TWSE cadence state, so one exchange cannot hide another exchange's missed poll or failure.
+- Daily 19:17 Asia/Taipei workflow captures TWSE and TPEx independently, persists both sources' SUCCESS/ERROR receipts to the isolated `pit-capture` branch, then fails the workflow if either source failed.
+- Daily read-only health workflow requires both TWSE and TPEx audit chains to be recent and internally valid. Neither green status is independent publication/revision completeness proof.
+- This source contract is corroborated by the official TPEx ex-right/ex-dividend preview dataset and multiple public OpenAPI schema captures; no historical timestamps are backdated and no live response is bundled into source control.
+- Validation ledger: new batch Q point starts at 0 failures. One Branch CI on the final SHA -> PR CI -> merge -> main CI. Do not rerun unchanged gates.
