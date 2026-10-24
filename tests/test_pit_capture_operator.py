@@ -208,8 +208,7 @@ def test_audit_is_strictly_read_only_even_without_existing_directories(tmp_path)
 
     failure = capture_poll(
         tmp_path, fetch_bytes=lambda: b"{}",
-        clock=ticks(BASE, BASE + timedelta(seconds=1),
-                    BASE + timedelta(seconds=2)),
+        clock=lambda: BASE,
     )
     assert failure.outcome == "ERROR"
     feed_dir = tmp_path / "feed-observations"
