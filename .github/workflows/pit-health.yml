@@ -35,4 +35,7 @@ jobs:
       - name: Verify TWSE receipt chain and poll freshness
         run: python -m tradingagents_tw.truth.capture_operator --archive-root pit-archive/data/pit --audit-only
       - name: Verify TPEx receipt chain and poll freshness
+        # Audit TPEx even if TWSE failed; both must report independently.
+        # The job still fails when either source fails (no continue-on-error).
+        if: ${{ !cancelled() }}
         run: python -m tradingagents_tw.truth.tpex_capture_operator --archive-root pit-archive/data/pit --audit-only
