@@ -327,3 +327,10 @@ Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion unti
 - Added Node regression for a locally imported JSON claiming signed PIT and PASS. This tests UI trust messaging, **not** live attestation or historical completeness.
 - New failure point starts at 0. Run one Branch CI on final SHA, then distinct PR CI, merge, main CI; no unchanged-SHA gate reruns.
 - First genuine scheduled TWSE+TPEx capture remains due 2026-10-24 19:17 Asia/Taipei. Afterwards read actual scheduled run, pit-capture SHA, both receipts and health. Production independent PIT attestor, complete historical publication/revision evidence, trusted projection.json and independent HTTPS reachability remain unresolved.
+
+## 2026-10-24 — Issue #9 atomic batch V: release gate documentation alignment (pending gates)
+- Base main: `e9fd058ce2e815fa59febb1450313eea066f9e0d` (PR #31 Branch/PR/main CI and Pages deployment SUCCESS; do not rerun).
+- Branch: `codex/v0.1-release-gates-sync`. Correct README's stale claims that TPEx prospective capture is missing and Issue #14 remains open. TPEx capture and independent poll journal were delivered in PR #27; Issue #14 is CLOSED after Pages deployment, while external HTTPS reachability remains unverified.
+- Clarify that manually imported Web JSON is always marked BLOCKED/unverified (PR #31), and that first real dual-source scheduled capture plus `pit-capture` write remain unverified before 19:17 Asia/Taipei. No market evidence, source code, workflows, scoring, trust roots or production projection changed.
+- Validation: documentation-only change, Branch CI once on final SHA → PR CI → merge → main CI; do not rerun any unchanged SHA/gate. New validation point failure count 0.
+- Next: after 2026-10-24 19:17 Asia/Taipei inspect real scheduled capture run, `pit-capture` SHA, both SUCCESS/ERROR receipts and health status. Independent production PIT attestor, complete historical announcement publication/revision evidence and trusted `projection.json` remain absent; never fabricate them.
