@@ -8,7 +8,7 @@ Taiwan-stock post-market decision-error-prevention system. **No automated tradin
 - **State:** deterministic adjusted-price Trend and Directional Score. The score is **not** a probability or a trade instruction.
 - **Reporting:** bound DailyReport and read-only DashboardProjection v1. No production `projection.json` exists; a report does not certify live PIT.
 - **Web:** mobile-first `web/index.html` reads only the upstream projection: score, trend, confidence, decision gate, evidence-readiness red/yellow/green, five-day score slope; five-day change, most-likely-wrong and Thesis remain explicitly unavailable. The browser never calculates core market judgments. Green is evidence readiness, **not** buy/sell.
-- **Prospective TWSE feed:** immutable raw-byte/SHA-256 observation receipts, append-only SUCCESS/ERROR poll journal, read-only health audit. These are `UNATTESTED` observations, **not** historical PIT coverage. The first real scheduled capture, independent production attestor, full historical action publication/revision evidence and TPEx prospective action feed remain outstanding.
+- **Prospective TWSE/TPEx feeds:** independent immutable raw-byte/SHA-256 observations, separate append-only SUCCESS/ERROR poll journals and read-only health audits. Both sources are scheduled daily, but the first real scheduled capture and evidence-branch write remain unverified. These are `UNATTESTED` observations, **not** historical PIT coverage. Independent production attestation and complete historical action publication/revision evidence remain outstanding.
 
 The historical `SIGNED_PIT_V1` mode requires a pinned independent Ed25519 public key and genuine captured-at-cutoff archive coverage. This repository ships **no production attestor/key or complete historical archive**. A signature, current latest-only feed, synthetic test or consecutive successful polls cannot establish historical completeness.
 
@@ -40,7 +40,7 @@ The audit exits nonzero unless `RECENT_UNATTESTED`. Never fabricate/backdate rec
 
 ## Mobile Web release
 
-Without same-origin, independently authorized `projection.json`, the static client intentionally displays **BLOCKED / no data**. Its manual file picker schema-checks JSON but does **not** authenticate the signer or historical PIT. Only publish exact validated upstream `render_dashboard_projection_json(report)` bytes after Truth/State/PIT release gates pass. See `web/README.md` for deployment restrictions.
+Without same-origin, independently authorized `projection.json`, the static client intentionally displays **BLOCKED / no data**. Its manual file picker schema-checks JSON but always displays imported claims as **BLOCKED / unverified source**; it does **not** authenticate the signer or historical PIT. Only publish exact validated upstream `render_dashboard_projection_json(report)` bytes after Truth/State/PIT release gates pass. See `web/README.md` for deployment restrictions.
 
 **GitHub Pages:** the repository Pages source was enabled and [deploy run 40060667366](https://github.com/tn289723-spec/TradingAgents/actions/runs/40060667366) **SUCCESS** for main `9dba5de6ae8d2deabb126fcabbbae3a7758ec2c2`. Its environment URL is `https://tn289723-spec.github.io/TradingAgents/`. **Independent external HTTPS reachability has not yet been verified** due to network/DNS limits in the checking environment; do not claim a fully operational market dashboard. No unchanged-SHA deployment rerun is needed.
 
@@ -48,4 +48,4 @@ Without same-origin, independently authorized `projection.json`, the static clie
 
 ## Completion gate
 
-[Issue #9](https://github.com/tn289723-spec/TradingAgents/issues/9) requires independent genuine historical PIT publication/revision coverage and real prospective capture evidence. [Issue #14](https://github.com/tn289723-spec/TradingAgents/issues/14) requires independently reachable HTTPS Web with trusted live projection. Both remain OPEN. Green CI and successful static deploy do not satisfy these release gates.
+[Issue #9](https://github.com/tn289723-spec/TradingAgents/issues/9) remains **OPEN** pending verified live dual-source capture, independent genuine historical PIT publication/revision coverage and a trusted production projection. [Issue #14](https://github.com/tn289723-spec/TradingAgents/issues/14) is **CLOSED** after successful GitHub Pages deployment; independent external HTTPS reachability and live data readiness are still unverified and must not be inferred from that closure. Green CI and successful static deployment do not establish live PIT readiness.
