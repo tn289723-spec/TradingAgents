@@ -264,3 +264,10 @@ Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion unti
 - Add deterministic valid-row, missing-field, invalid-calendar and poll-error regressions. This is schema hardening only, NOT a real live capture, independent attestor or historical publication/revision completeness proof.
 - Gate plan: one Branch CI on final SHA -> PR CI -> merge -> main CI. New point failure count 0. First actual scheduled capture remains due 2026-10-24 19:17 Asia/Taipei; observe it after the window without manual fabrication.
 - Issue #14 Pages/Cloudflare permission blockers unchanged; no deployment retries. TPEx prospective feed and real PIT attestation remain open.
+
+## 2026-10-24 — Issue #9/#14 atomic batch O: release-readiness README (pending gates)
+- Base main `9dba5de6ae8d2deabb126fcabbbae3a7758ec2c2`. Operator enabled GitHub Pages and triggered a new main commit. Main CI run 40060667297 and Pages deployment run 40060667366 report SUCCESS; Pages job emitted `https://tn289723-spec.github.io/TradingAgents/`. Independent HTTP reachability was not confirmed (checker network/DNS unavailable). No equivalent Pages/CI gate rerun.
+- Branch `codex/v0.1-release-readiness`: update stale bootstrap README with actual Truth/State, synthetic-vs-live PIT boundary, operational TWSE capture/health, commands, Web behavior, Pages evidence and exact unresolved release gates.
+- No source code, market data, attestor, deployment workflow or production projection changed. First genuine 2026-10-24 19:17 Asia/Taipei capture remains pending.
+- One Branch CI → PR CI → merge → main CI per new SHA; new documentation validation point failure count 0.
+- Next: inspect actual scheduled capture and `pit-capture` SHA after 19:17; independently verify Pages HTTPS reachability when available. Keep Issues #9/#14 open until real evidence and trusted projection.
