@@ -77,9 +77,10 @@ class FeedObservation(StrictModel):
 class AppendOnlyFeedArchive:
     """Exclusive-create receipts. No overwrites, no implied coverage continuity."""
 
-    def __init__(self, root: str | Path):
+    def __init__(self, root: str | Path, *, create: bool = True):
         self.objects = Path(root) / "feed-observations"
-        self.objects.mkdir(parents=True, exist_ok=True)
+        if create:
+            self.objects.mkdir(parents=True, exist_ok=True)
 
     def append(self, observation: FeedObservation) -> str:
         FeedObservation.model_validate(observation.model_dump(mode="json"))

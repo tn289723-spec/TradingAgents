@@ -86,9 +86,10 @@ class PollRecord(StrictModel):
 class AppendOnlyPollJournal:
     """Single-writer hash-linked journal; not an independently witnessed ledger."""
 
-    def __init__(self, root: str | Path):
+    def __init__(self, root: str | Path, *, create: bool = True):
         self.objects = Path(root) / "poll-records"
-        self.objects.mkdir(parents=True, exist_ok=True)
+        if create:
+            self.objects.mkdir(parents=True, exist_ok=True)
 
     def read(self, poll_hash: str) -> PollRecord:
         if not _HEX64.fullmatch(poll_hash):
@@ -103,7 +104,7 @@ class AppendOnlyPollJournal:
     def _verify_success_receipt(self, record: PollRecord) -> None:
         if record.outcome != "SUCCESS":
             return
-        observation = AppendOnlyFeedArchive(self.objects.parent).read(
+        observation = AppendOnlyFeedArchive(self.objects.parent, create=False).read(
             record.observation_hash
         )
         if not (record.started_at <= observation.started_at
@@ -158,7 +159,7 @@ def audit_poll_health(root: str | Path, *, as_of: datetime) -> dict[str, object]
     """
     if as_of.utcoffset() is None:
         raise ValueError("audit clock must be timezone-aware")
-    records = AppendOnlyPollJournal(root).validated_records()
+    records = AppendOnlyPollJournal(root, create=False).validated_records()
     last = records[-1] if records else None
     if last is not None and as_of < last.finished_at:
         raise ValueError("audit clock precedes latest poll")
