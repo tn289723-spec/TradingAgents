@@ -199,3 +199,20 @@ def test_workflow_persists_first_failed_poll_without_feed_observation(tmp_path):
     assert staged == [
         f"data/pit/poll-records/{failed.poll_hash}.json"
     ]
+
+
+def test_audit_is_strictly_read_only_even_without_existing_directories(tmp_path):
+    missing_root = tmp_path / "not-created"
+    assert audit_poll_health(missing_root, as_of=BASE)["status"] == "NO_BASELINE"
+    assert not missing_root.exists()
+
+    failure = capture_poll(
+        tmp_path, fetch_bytes=lambda: b"{}",
+        clock=ticks(BASE, BASE + timedelta(seconds=1)),
+    )
+    assert failure.outcome == "ERROR"
+    feed_dir = tmp_path / "feed-observations"
+    assert list(feed_dir.iterdir()) == []
+    feed_dir.rmdir()
+    assert audit_poll_health(tmp_path, as_of=BASE + timedelta(hours=1))["status"] == "GAP_OR_FAILURE"
+    assert not feed_dir.exists()

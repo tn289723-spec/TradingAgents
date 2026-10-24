@@ -237,3 +237,11 @@ Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion unti
 - Added static regression checks for cron, evidence branch, no write token, fail-closed audit invocation, and the 30h threshold relationship.
 - Validation ledger: new batch K point starts at 0 failures. Run Branch CI once on its final SHA, then PR CI -> merge -> main CI; never rerun a successful SHA/gate.
 - First real TWSE scheduled capture is still pending at 19:17 Asia/Taipei; do not manually fabricate a poll or claim `pit-capture` has live receipts. Independent attestor, real historical publication/revision completeness, TPEx prospective source, and Issue #14 deployment remain unresolved.
+
+## 2026-10-24 — Issue #9 atomic batch L: strict read-only health audit (pending gates)
+- Base main: `511820cb7ac8c874a4f778ae48fd1f1e4e8b3b6a` (PR #21 Branch/PR/main CI all PASS; no reruns).
+- Identified audit-only filesystem side effect: constructing poll/feed archive readers created missing directories. This contradicted the health workflow's read-only contract and could mask a missing evidence path.
+- The audit path now opens both journal and referenced feed receipts with `create=False`; capture/write paths retain their existing exclusive-create behavior. No changes to PIT coverage status, source semantics, score or scheduling.
+- Added regression for absent archive root and ERROR-only journal with removed feed directory: audit must not create any directories, and must remain `NO_BASELINE` or `GAP_OR_FAILURE` respectively.
+- Branch: `codex/v0.1-pit-audit-no-write`. Validation plan: one new-SHA Branch CI -> PR CI -> merge -> main CI; no unchanged SHA/gate reruns. Failure count for this point starts at 0.
+- First real TWSE 19:17 Asia/Taipei scheduled poll and `pit-capture` push remain unverified; live PIT attestation and Web deployment remain blocked by their previously recorded external prerequisites.
