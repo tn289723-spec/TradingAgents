@@ -16,6 +16,9 @@ from tradingagents_tw.contracts import (
     StateSnapshot,
     TrendState,
 )
+from tradingagents_tw.state.score import (
+    V0_1_SCORE_CONFIG, build_score_components, calculate_directional_score,
+)
 from tradingagents_tw.reporting import (
     PIT_ATTESTATION_CERTIFICATION,
     build_attested_dashboard_projection,
@@ -25,20 +28,9 @@ from tradingagents_tw.truth.historical_replay import ingest_historical, replay_h
 
 
 def _state(snapshot, replay):
-    score = DirectionalScore(
-        score=50,
-        components=(
-            ScoreComponent(
-                component="TREND",
-                raw_value=0,
-                normalized_value=50,
-                weight=1,
-                contribution=50,
-                rule_version="publication-gate-test",
-            ),
-        ),
-        scoring_version="score-v0.1",
-    )
+    score = calculate_directional_score(build_score_components(
+        {name: 0.0 for name, _ in V0_1_SCORE_CONFIG.weights}
+    ))
     return StateSnapshot(
         snapshot_id=snapshot.snapshot_id,
         symbol=snapshot.symbol,
@@ -148,6 +140,61 @@ def test_state_must_match_verified_historical_trend(tmp_path):
             state=state,
             confidence=_confidence(),
             analysis_run_id="mismatch-run",
+            generated_at=snapshot.analysis_cutoff + timedelta(minutes=1),
+            trusted_public_keys=TRUST,
+        )
+
+
+def test_attested_projection_rejects_forged_score_arithmetic(tmp_path):
+    args, _ = signed_case(tmp_path)
+    args["trusted_public_keys"] = TRUST
+    snapshot = ingest_historical(**args)
+    replay = replay_historical(
+        store=args["store"], snapshot_id=args["snapshot_id"],
+        trusted_public_keys=TRUST, require_live_pit=True,
+    )
+    state = _state(snapshot, replay)
+    forged = state.model_copy(update={
+        "directional_score": state.directional_score.model_copy(update={"score": 99.0})
+    })
+    with pytest.raises(ValueError, match="State directional score mismatch"):
+        build_attested_dashboard_projection(
+            store=args["store"], snapshot_id=args["snapshot_id"],
+            state=forged, confidence=_confidence(),
+            analysis_run_id="forged-score",
+            generated_at=snapshot.analysis_cutoff + timedelta(minutes=1),
+            trusted_public_keys=TRUST,
+        )
+
+
+@pytest.mark.parametrize("tamper", ["weight", "normalized", "version", "duplicate"])
+def test_attested_projection_rejects_non_frozen_score_components(tmp_path, tamper):
+    args, _ = signed_case(tmp_path)
+    args["trusted_public_keys"] = TRUST
+    snapshot = ingest_historical(**args)
+    replay = replay_historical(
+        store=args["store"], snapshot_id=args["snapshot_id"],
+        trusted_public_keys=TRUST, require_live_pit=True,
+    )
+    state = _state(snapshot, replay)
+    score = state.directional_score
+    components = list(score.components)
+    if tamper == "weight":
+        components[0] = components[0].model_copy(update={"weight": 0.5})
+    elif tamper == "normalized":
+        components[0] = components[0].model_copy(update={"normalized_value": 75.0})
+    elif tamper == "duplicate":
+        components[1] = components[0]
+    if tamper == "version":
+        score = score.model_copy(update={"scoring_version": "unknown"})
+    else:
+        score = score.model_copy(update={"components": tuple(components)})
+    state = state.model_copy(update={"directional_score": score})
+    with pytest.raises(ValueError, match="score|scoring|component"):
+        build_attested_dashboard_projection(
+            store=args["store"], snapshot_id=args["snapshot_id"],
+            state=state, confidence=_confidence(),
+            analysis_run_id="forged-component",
             generated_at=snapshot.analysis_cutoff + timedelta(minutes=1),
             trusted_public_keys=TRUST,
         )

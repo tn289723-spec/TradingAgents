@@ -12,6 +12,9 @@ from typing import Mapping, Literal
 
 from tradingagents_tw.contracts import ConfidenceBreakdown, StateSnapshot
 from tradingagents_tw.truth.historical_replay import replay_historical
+from tradingagents_tw.state.score import (
+    V0_1_SCORE_CONFIG, build_score_components, calculate_directional_score,
+)
 from tradingagents_tw.truth.store import TruthSnapshotStore
 
 from .builder import build_daily_report
@@ -24,8 +27,25 @@ PIT_ATTESTATION_CERTIFICATION: Literal[
 
 _ATTESTATION_LIMITATION = (
     "SIGNED_PIT_V1 verifies a pinned attestor-bound completeness claim; "
-    "the exchange is not the attestor."
+    "the exchange is not the attestor. "
+    "Score arithmetic is checked against frozen v0.1 weights; component inputs "
+    "and confidence are not independently attested by this PIT gate."
 )
+
+
+def _require_frozen_score_consistency(state: StateSnapshot) -> None:
+    """Reject forged arithmetic; do not infer that inputs have independent provenance."""
+    score = state.directional_score
+    if score.scoring_version != V0_1_SCORE_CONFIG.version:
+        raise ValueError("attested projection requires frozen v0.1 scoring version")
+    raw = {item.component: item.raw_value for item in score.components}
+    if len(raw) != len(score.components):
+        raise ValueError("duplicate State score component")
+    expected_components = build_score_components(raw)
+    if score.components != expected_components:
+        raise ValueError("State score components diverge from frozen v0.1 rules")
+    if score.score != calculate_directional_score(expected_components).score:
+        raise ValueError("State directional score mismatch")
 
 
 def build_attested_dashboard_projection(
@@ -56,6 +76,7 @@ def build_attested_dashboard_projection(
         raise ValueError("verified historical replay identity mismatch")
     if state.trend != replay.trend:
         raise ValueError("State trend does not match verified historical replay")
+    _require_frozen_score_consistency(state)
 
     report = build_daily_report(
         truth=truth,
