@@ -77,7 +77,7 @@ function clear() {
   document.getElementById("status").textContent = "無可信投影資料。請載入正式 DashboardProjection JSON。";
   document.getElementById("status").dataset.level = "BLOCKED";
 }
-function show(projection) {
+function show(projection, { localImport = false } = {}) {
   put("symbol", projection.symbol);
   put("trade-date", projection.trade_date);
   put("generated-at", projection.generated_at);
@@ -91,11 +91,17 @@ function show(projection) {
   put("change", "未提供（不等同五日斜率）");
   put("thesis", "尚未評估");
   put("wrong", "尚未評估");
-  put("pit", projection.historical_pit_certification === "SIGNED_PIT_V1_ATTESTATION_VERIFIED" ? "已通過 SIGNED_PIT_V1 pinned attestor 驗證（完整性仍依賴獨立 attestor 的聲明）" : "未經正式歷史 PIT 認證");
+  put("pit", localImport
+    ? "本機匯入僅通過格式檢查；未驗證簽章、來源或歷史 PIT。檔案自稱的認證狀態不可視為已驗證。"
+    : projection.historical_pit_certification === "SIGNED_PIT_V1_ATTESTATION_VERIFIED"
+      ? "已通過 SIGNED_PIT_V1 pinned attestor 驗證（完整性仍依賴獨立 attestor 的聲明）"
+      : "未經正式歷史 PIT 認證");
   put("limitations", projection.limitations.length ? projection.limitations.join("；") : "未提供額外限制；歷史 PIT 仍未認證。");
   const status = document.getElementById("status");
-  status.dataset.level = projection.decision_gate;
-  status.textContent = ({ PASS: "🟢 證據檢查通過", DEGRADED: "🟡 證據降級", BLOCKED: "🔴 證據阻擋" })[projection.decision_gate] + "｜燈號僅代表證據就緒度，非買賣訊號";
+  status.dataset.level = localImport ? "BLOCKED" : projection.decision_gate;
+  status.textContent = localImport
+    ? "🔴 本機匯入未驗證來源｜僅供檢視，檔案自稱的 PASS／PIT 認證不可當成可信證據"
+    : ({ PASS: "🟢 證據檢查通過", DEGRADED: "🟡 證據降級", BLOCKED: "🔴 證據阻擋" })[projection.decision_gate] + "｜燈號僅代表證據就緒度，非買賣訊號";
   document.getElementById("data").hidden = false;
 }
 
@@ -112,7 +118,7 @@ export async function mountDashboard() {
     try {
       if (file.size > 131072) throw new ProjectionError("檔案超過 128 KiB");
       const parsed = parseProjection(await file.text());
-      if (ticket === generation) show(parsed);
+      if (ticket === generation) show(parsed, { localImport: true });
     } catch (error) {
       if (ticket !== generation) return;
       clear();
