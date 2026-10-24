@@ -19,7 +19,7 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout verified auditor
+      - name: Checkout verified auditors
         uses: actions/checkout@v4
       - name: Checkout prospective evidence branch
         uses: actions/checkout@v4
@@ -30,7 +30,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install verified auditor
+      - name: Install verified auditors
         run: python -m pip install -e .
-      - name: Verify receipt chain and poll freshness (never PIT completeness)
+      - name: Verify TWSE receipt chain and poll freshness
         run: python -m tradingagents_tw.truth.capture_operator --archive-root pit-archive/data/pit --audit-only
+      - name: Verify TPEx receipt chain and poll freshness
+        run: python -m tradingagents_tw.truth.tpex_capture_operator --archive-root pit-archive/data/pit --audit-only
