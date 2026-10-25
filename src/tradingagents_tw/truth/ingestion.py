@@ -11,7 +11,7 @@ from tradingagents_tw.contracts import (
 )
 from tradingagents_tw.providers import ProviderAdapter, ProviderRequest
 from tradingagents_tw.providers.base import ProviderUnavailable
-from tradingagents_tw.providers.registry import LATEST_SOURCES, Market, official_latest_fallback_for
+from tradingagents_tw.providers.registry import HISTORICAL_SOURCES, LATEST_SOURCES, Market, official_latest_fallback_for
 
 from .provider_boundary import validate_provider_output
 from .snapshot import build_truth_snapshot
@@ -65,6 +65,8 @@ def ingest_post_market(
         except KeyError:
             market = None
         if market is not None:
+            if provider.metadata != HISTORICAL_SOURCES[market]:
+                raise IngestionViolation("official fallback requires registered same-board historical provider")
             backup = fallback_provider or official_latest_fallback_for(provider.metadata)
             if backup is not None:
                 if backup.metadata != LATEST_SOURCES[market]:

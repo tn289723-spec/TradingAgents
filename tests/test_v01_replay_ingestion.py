@@ -243,6 +243,31 @@ def test_empty_historical_source_falls_back_to_registered_same_board_official_fe
     }
 
 
+def test_official_fallback_rejects_unregistered_historical_metadata(tmp_path):
+    class SpoofedHistory:
+        metadata = HISTORICAL_SOURCES[Market.TWSE].model_copy(
+            update={"provider_id": "unregistered-twse-history"}
+        )
+
+        def fetch(self, request):
+            return ()
+
+    class RegisteredBackup:
+        metadata = TWSEStockDayAllAdapter.metadata
+
+        def fetch(self, request):
+            raise AssertionError("unregistered primary must not invoke fallback")
+
+    with pytest.raises(IngestionViolation, match="registered same-board historical"):
+        ingest_post_market(
+            provider=SpoofedHistory(),
+            request=_request(),
+            assessment=assess_evidence(coverage=100, freshness="PASS", provenance="PASS"),
+            snapshot_id="spoofed-fallback",
+            store=FileTruthSnapshotStore(tmp_path),
+            fallback_provider=RegisteredBackup(),
+        )
+
 def test_tpex_official_latest_adapter_parses_daily_close():
     rows = [
         {

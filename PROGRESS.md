@@ -7,6 +7,8 @@
 - Fallback is restricted to one requested session and exact registered same-board provider metadata. Selected provider, attempt order and reason are persisted in immutable snapshot config. It cannot fill historical ranges or bypass PIT/corporate-action gates.
 - ADR: `docs/adr/0001-official-same-board-post-market-fallback.md`.
 - Branch: `codex/v0.1-official-source-fallback`.
+- GPT review correction: a source-label-only match could authorize fallback for an unregistered primary. Now require exact immutable historical registry metadata before fallback; spoofed primary ID is rejected before backup fetch. Added negative regression.
+- Prior Branch CI at `88d4167bd208bcdfa5646c14445f30bff3497544`: SUCCESS (40152405615). This review correction changes SHA; next gate is a single new Branch CI, then PR CI and main CI if merged.
 - Verification: focused ingestion tests pass (11/11); full local suite passes after one evidenced exception-contract correction. Existing deprecation warnings are unrelated. Branch CI remains pending; new validation point has 1 recorded local failure and 1 corrected rerun.
 - Local full-suite attempt 1: 1 existing empty-response expectation failed because its exception contract is `ValueError`; `ProviderUnavailable` now subclasses `ValueError` while remaining separately catchable for fallback. Failure point count 1; next run uses the changed source and is the only retry for this failure.
 - Limitation: the Web still requires an independently trusted `projection.json`; this fallback acquires one-day Truth evidence but does not publish market data to GitHub Pages.
