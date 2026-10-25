@@ -80,9 +80,13 @@ it must not be carried forward as daily evidence. The endpoint serves the latest
 file, so the adapter is `LATEST_ONLY` and cannot reconstruct past point-in-time
 data. Archive each raw response for historical research. The adapter rejects
 unknown CSV schemas and emits `RAW` evidence pending the existing verification
-flow. The reference stock-chips page is a generated static snapshot; its ranks
-and weights are not treated as authoritative evidence. The source adapter does
-not yet connect institutional-flow or margin-balance feeds.
+flow. `TWSEInstitutionalAdapter` and `TPEXInstitutionalAdapter` add per-stock
+daily three-institution net flows in shares. `TWSEMarginAdapter` reads TWSE
+per-stock margin and short balances in lots. These adapters retain source dates
+and response hashes, reject schema/date mismatches, and emit `RAW` evidence.
+The reference stock-chips page is a generated static snapshot; its ranks and
+weights are not treated as authoritative evidence. TPEx margin balances remain
+unmapped until their official field schema is confirmed.
 
 ## Prospective capture and health
 
