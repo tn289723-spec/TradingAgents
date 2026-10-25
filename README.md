@@ -82,11 +82,25 @@ data. Archive each raw response for historical research. The adapter rejects
 unknown CSV schemas and emits `RAW` evidence pending the existing verification
 flow. `TWSEInstitutionalAdapter` and `TPEXInstitutionalAdapter` add per-stock
 daily three-institution net flows in shares. `TWSEMarginAdapter` reads TWSE
-per-stock margin and short balances in lots. These adapters retain source dates
-and response hashes, reject schema/date mismatches, and emit `RAW` evidence.
-The reference stock-chips page is a generated static snapshot; its ranks and
-weights are not treated as authoritative evidence. TPEx margin balances remain
-unmapped until their official field schema is confirmed.
+per-stock margin and short balances in lots. `TPEXMarginAdapter` completes the
+dual-board margin coverage from the official TPEx margin-balance endpoint,
+including previous/current balances, daily activity, limits and offset amount.
+These adapters retain source dates and response hashes, reject schema/date
+mismatches, and emit `RAW` evidence. The reference stock-chips page is a
+generated static snapshot; its ranks and weights are not treated as
+authoritative evidence.
+
+| Evidence | Official source coverage | History capability |
+| --- | --- | --- |
+| Daily OHLCV | TWSE + TPEx | Historical date queries |
+| Three-institution flow | TWSE T86 + TPEx OpenAPI | TWSE historical; TPEx latest snapshot |
+| Margin and short balance | TWSE MI_MARGN + TPEx OpenAPI | TWSE historical; TPEx latest snapshot (official TPEx web report supports dated history, not yet wired into this adapter) |
+| Ownership distribution by holder tier | TDCC Open Data 1-5 | Latest weekly snapshot |
+
+Latest-only providers cannot reconstruct old point-in-time values. Archive raw
+receipts daily to build that history; the adapters alone do not populate or
+verify the PIT archive. TPEx's official dated margin report provides history
+from 2007-01, and an older archive for 2003-08 through 2006-12. See ADR 0004.
 
 ## Prospective capture and health
 
