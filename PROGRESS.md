@@ -1,5 +1,13 @@
 # TradingAgents-TW v0.1 Progress
 
+## 2026-10-25 — Atomic batch: off-hour prospective PIT health scheduling
+- Base main: `3b4269663a0afd5e97c47cb91169cc1e72167c33` (PR #40 verified, existing Branch/PR/main and public HTTPS gates not rerun).
+- Observed 2026-10-25 09:00 Asia/Taipei scheduled health run absent through the last documented 12:08 observation. This is not proof of a permanent missed run; GitHub Actions schedules are best-effort.
+- GitHub official troubleshooting guidance identifies the top of each hour as a peak-load period where scheduled events may be delayed or dropped. Shift the **health audit only** from 09:00 to **09:13 Asia/Taipei** (`13 1 * * *` UTC). Keep the daily 19:17 capture unchanged.
+- Preserve read-only permissions, both independent TWSE/TPEx audits, `if: !cancelled()`, and fail-closed job status. No manual capture, fabricated receipt, new attestation, or trusted projection.
+- Deterministic static contract checked before writing: single off-hour cron, unchanged two-source audit steps, no continue-on-error. Branch: `codex/v0.1-pit-health-offhour`. Branch/PR/main CI gates pending; no success claimed for the new schedule until a future genuine scheduled run is observed.
+- Production historical PIT attestor, full historical publication/revision evidence and trusted `projection.json` remain unavailable. Issue #9 stays OPEN.
+
 ## 2026-10-25 — Official data connected to the Web dashboard
 - Base main: `5b68f43` (PR #34 dual-board flow/margin and research tools merged).
 - Gap: the read-only page exposed no official source values; it displayed only a separately gated `DashboardProjection`.
