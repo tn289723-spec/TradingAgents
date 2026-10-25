@@ -115,11 +115,22 @@ python -m tradingagents_tw.truth.capture_operator --archive-root /path/to/pit-ca
 
 The audit exits nonzero unless `RECENT_UNATTESTED`. Never fabricate/backdate receipts or publish provider credentials.
 
+## Official source data on the Web dashboard
+
+The read-only market-data panel displays official TWSE/TPEx daily quotes,
+three-institution flows and margin balances plus TDCC weekly ownership tiers.
+The GitHub Pages workflow captures and publishes a same-origin normalized
+`market-sources.json` snapshot on weekdays after market close. Every source is
+labelled RAW / unverified with its observation time and response hash; stale
+snapshots older than 72 hours are hidden. This feed does not calculate scores
+or signals and remains separate from the verified PIT score projection. See
+ADR 0005 and `web/README.md`.
+
 ## Mobile Web release
 
 Without same-origin, independently authorized `projection.json`, the static client intentionally displays **BLOCKED / no data**. Its manual file picker schema-checks JSON but always displays imported claims as **BLOCKED / unverified source**; it does **not** authenticate the signer or historical PIT. Only publish exact validated upstream `render_dashboard_projection_json(report)` bytes after Truth/State/PIT release gates pass. See `web/README.md` for deployment restrictions.
 
-**GitHub Pages:** the repository Pages source was enabled and [deploy run 40060667366](https://github.com/tn289723-spec/TradingAgents/actions/runs/40060667366) **SUCCESS** for main `9dba5de6ae8d2deabb126fcabbbae3a7758ec2c2`. Its environment URL is `https://tn289723-spec.github.io/TradingAgents/`. **Independent external HTTPS reachability has not yet been verified** due to network/DNS limits in the checking environment; do not claim a fully operational market dashboard. No unchanged-SHA deployment rerun is needed.
+**GitHub Pages:** the repository Pages source was enabled and [deploy run 40060667366](https://github.com/tn289723-spec/TradingAgents/actions/runs/40060667366) **SUCCESS** for main `9dba5de6ae8d2deabb126fcabbbae3a7758ec2c2`. Its environment URL is `https://tn289723-spec.github.io/TradingAgents/`. The dashboard includes a scheduled official-source snapshot panel; verify a successful current capture/deploy run and external HTTPS reachability before claiming live-data readiness.
 
 **Cloudflare alternative:** authorized Pages project, no build command, output directory `web`. Prior Pages creation required interactive authorization; a Workers alternative returned 403 for missing script-write permission. Do not retry unchanged permissions or modify other Workers.
 
