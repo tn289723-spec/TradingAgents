@@ -11,7 +11,7 @@ from urllib.request import Request, urlopen
 
 from tradingagents_tw.contracts import Evidence, EvidenceStatus, PriceBar, PriceBasis
 from tradingagents_tw.truth.calendar import TAIPEI, PostMarketPolicy
-from .base import ProviderRequest
+from .base import ProviderRequest, ProviderUnavailable
 from .registry import Market, HISTORICAL_SOURCES
 from .twse import _parse_date
 
@@ -71,7 +71,7 @@ class HistoricalOHLCVAdapter:
             if observed_at.utcoffset() is None or observed_at > request.analysis_cutoff:
                 raise ValueError("historical response was not available at analysis cutoff; use archived Truth")
             if not isinstance(payload, dict) or payload.get("stat", "").lower() != "ok":
-                raise ValueError("official historical response is unavailable")
+                raise ProviderUnavailable("official historical response is unavailable")
             if payload.get("date") != month.strftime("%Y%m%d"):
                 raise ValueError("historical response month mismatch")
             if self.market is Market.TWSE:
@@ -90,7 +90,7 @@ class HistoricalOHLCVAdapter:
                 if fields != TPEX_FIELDS:
                     raise ValueError("unsupported TPEx historical schema")
             if not isinstance(rows, list) or not rows:
-                raise ValueError("empty historical month; no latest-only fallback")
+                raise ProviderUnavailable("empty historical month")
             for row in rows:
                 if not isinstance(row, list) or len(row) != len(fields):
                     raise ValueError("malformed historical row")
