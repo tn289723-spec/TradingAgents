@@ -166,7 +166,7 @@ function renderMarketSources(snapshot, symbol) {
   }
   for (const source of snapshot.sources) {
     const item = document.createElement("li");
-    item.textContent = `${source.label}｜RAW／未驗證｜${source.trade_date || "每週快照"}｜觀測 ${source.observed_at}｜可用 ${source.record_count} 筆｜缺漏 ${source.missing_count} 筆`;
+    item.textContent = `${source.label}｜RAW／未驗證｜${source.trade_date || "每週快照"}｜觀測 ${source.observed_at}｜可用 ${source.record_count} 筆｜缺漏 ${source.missing_count} 筆｜SHA-256 ${source.content_sha256.slice(0, 12)}…`;
     list.append(item);
   }
   if (age > 72 * 60 * 60 * 1000) return;
