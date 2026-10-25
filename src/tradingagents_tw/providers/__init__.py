@@ -6,4 +6,4 @@ from .tdcc import TDCCOwnershipAdapter, TDCC_OWNERSHIP_URL
 from .institutional import (
     TWSEInstitutionalAdapter, TPEXInstitutionalAdapter, TWSE_T86_URL, TPEX_3INSTI_URL,
 )
-from .margin import TWSEMarginAdapter, TWSE_MARGIN_URL
+from .margin import TWSEMarginAdapter, TWSE_MARGIN_URL, TPEXMarginAdapter, TPEX_MARGIN_URL
