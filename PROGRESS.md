@@ -1,3 +1,9 @@
+## 2026-10-25 — Atomic batch: TDCC provider post-download PIT cutoff (pending CI)
+- Base main: `86fc57ef59a53c2e2e33697d6579b623a821d0c2` (PR #42 merged; its Branch/PR/main, Pages and public HTTPS gates already SUCCESS; no reruns).
+- Audit found `TDCCOwnershipAdapter.fetch` still stamped `observed_at` before the weekly CSV download, even though PR #42 corrected the separate Web market snapshot builder. A delayed fetch could falsely pass an earlier analysis cutoff.
+- Record TDCC provider `observed_at` and conservative `published_at` only after retrieval, then enforce the requested cutoff. Two deterministic delayed-transport regressions cover post-fetch time and cutoff crossing. No new PIT completeness claim, trust root, score or trading behavior.
+- Branch: `codex/v0.1-tdcc-post-fetch-observation`. Await distinct Branch/PR/main CI gates on final SHA; Issue #9 remains OPEN. Next operational observation: second genuine scheduled TWSE+TPEx capture after 19:17 Asia/Taipei (may be delayed), per-source receipts and cadence; do not fabricate or rerun.
+
 ## 2026-10-25 — Atomic batch: no pre-fetch timestamps in official RAW market snapshot
 - Base main: `185f92684cb8cf5a873d659b93eded0843aa242a` (PR #41 and its Branch/PR/main gates already verified; do not rerun).
 - Root cause: `reporting.market_sources` stamped each official JSON and TDCC CSV as `observed_at` **before** network retrieval. A slow/retried fetch could therefore backdate an unverified RAW observation, contrary to the evidence acquisition-time boundary.
