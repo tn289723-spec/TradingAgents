@@ -299,6 +299,22 @@ def test_tpex_official_latest_adapter_parses_daily_close():
     assert item.payload["transaction_count"] == 15_000
 
 
+def test_tpex_official_latest_adapter_preserves_ex_dividend_change_note():
+    rows = [{
+        "Date": "1151023", "SecuritiesCompanyCode": "6488", "CompanyName": "環球晶",
+        "Close": "435.50", "Change": "除息", "Open": "430.00", "High": "440.00",
+        "Low": "428.00", "TradingShares": "12,345,000",
+        "TransactionAmount": "5,350,000,000", "TransactionNumber": "15,000",
+    }]
+    observed = datetime(2026, 10, 23, 7, tzinfo=UTC)
+    adapter = TPEXDailyCloseAdapter(fetch_json=lambda: rows, clock=lambda: observed)
+
+    evidence, = adapter.fetch(_request(symbol="6488"))
+
+    assert evidence.payload["change"] is None
+    assert evidence.payload["change_note"] == "除息"
+
+
 def test_twse_corporate_action_adapter_preserves_pending_values():
     rows = [
         {
