@@ -21,7 +21,9 @@ from tradingagents_tw.providers import (
     TPEX_DAILY_CLOSE_URL,
     TWSEExRightPreviewAdapter,
     TWSE_EXRIGHT_PREVIEW_URL,
+    TWSEStockDayAllAdapter,
 )
+from tradingagents_tw.providers.registry import HISTORICAL_SOURCES, Market
 from tradingagents_tw.state import derive_trend_inputs, evaluate_trend_from_prices
 from tradingagents_tw.truth import (
     FileTruthSnapshotStore,
@@ -205,6 +207,40 @@ def test_empty_provider_output_cannot_create_pass_snapshot(tmp_path):
             snapshot_id="empty",
             store=FileTruthSnapshotStore(tmp_path),
         )
+
+
+def test_empty_historical_source_falls_back_to_registered_same_board_official_feed(tmp_path):
+    class EmptyTWSEHistory:
+        metadata = HISTORICAL_SOURCES[Market.TWSE]
+
+        def fetch(self, request):
+            return ()
+
+    rows = [{
+        "Code": "3037", "Date": "1151023", "Name": "欣興",
+        "OpeningPrice": "100", "HighestPrice": "102", "LowestPrice": "99",
+        "ClosingPrice": "101", "TradeVolume": "1000", "TradeValue": "101000",
+        "Transaction": "50", "Change": "+1",
+    }]
+    fallback = TWSEStockDayAllAdapter(
+        fetch_json=lambda: rows,
+        clock=lambda: datetime(2026, 10, 23, 7, tzinfo=UTC),
+    )
+    assessment = assess_evidence(coverage=100, freshness="PASS", provenance="PASS")
+    snapshot = ingest_post_market(
+        provider=EmptyTWSEHistory(), request=_request(), assessment=assessment,
+        snapshot_id="twse-fallback", store=FileTruthSnapshotStore(tmp_path),
+        fallback_provider=fallback,
+    )
+
+    assert snapshot.evidence[0].source == "TWSE_OPENAPI"
+    assert snapshot.evidence[0].status is EvidenceStatus.VERIFIED
+    assert FileTruthSnapshotStore(tmp_path).replay_config(snapshot.config_hash)["data_source_resolution"] == {
+        "mode": "OFFICIAL_SAME_BOARD_FALLBACK",
+        "reason": "empty_primary",
+        "attempted_provider_ids": ["twse-stock-day-history", "twse-stock-day-all"],
+        "selected_provider_id": "twse-stock-day-all",
+    }
 
 
 def test_tpex_official_latest_adapter_parses_daily_close():
