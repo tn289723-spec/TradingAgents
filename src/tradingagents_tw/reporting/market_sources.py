@@ -83,8 +83,8 @@ def build_market_sources_snapshot(*, fetch_bytes: Callable[[str], bytes] = _http
     source_info: list[dict[str, Any]] = []
 
     def download_json(key: str, label: str, url: str, *, request_url: str | None = None):
-        observed = now()
         raw = fetch_bytes(request_url or url)
+        observed = now()  # Evidence is observed only after retrieval completes.
         payload = json.loads(raw.decode("utf-8-sig"))
         if not payload or not isinstance(payload, (list, dict)):
             raise ValueError(f"{key} response must be a non-empty JSON array or object")
@@ -198,8 +198,8 @@ def build_market_sources_snapshot(*, fetch_bytes: Callable[[str], bytes] = _http
 
     # TDCC publishes one weekly CSV. Parse and group it once rather than re-reading
     # the entire file once per listed symbol.
-    observed = now()
     raw_tdcc = fetch_bytes(TDCC_OWNERSHIP_URL)
+    observed = now()  # Do not backdate a potentially slow weekly feed download.
     text = raw_tdcc.decode("utf-8-sig")
     reader = csv.DictReader(io.StringIO(text))
     required = {"資料日期", "證券代號", "持股分級", "人數", "股數", "占集保庫存數比例%"}

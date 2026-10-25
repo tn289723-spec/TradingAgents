@@ -1,3 +1,10 @@
+## 2026-10-25 — Atomic batch: no pre-fetch timestamps in official RAW market snapshot
+- Base main: `185f92684cb8cf5a873d659b93eded0843aa242a` (PR #41 and its Branch/PR/main gates already verified; do not rerun).
+- Root cause: `reporting.market_sources` stamped each official JSON and TDCC CSV as `observed_at` **before** network retrieval. A slow/retried fetch could therefore backdate an unverified RAW observation, contrary to the evidence acquisition-time boundary.
+- Fix: stamp `observed_at` immediately **after** each successful raw-byte retrieval; preserve source/field contracts, cutoff, RAW_UNVERIFIED status and fail-closed trusted Projection. No new PIT attestation or score release.
+- Deterministic regression: seven mocked 2-second fetches require seven monotonic post-fetch source timestamps, with OHLCV and TDCC per-symbol evidence matching and generated_at after the final fetch.
+- Branch: `codex/v0.1-market-observed-after-fetch`; Branch/PR/main CI gates pending. Historical publication/revision completeness, independent attestor and trusted `projection.json` remain BLOCKED. Issue #9 OPEN.
+
 # TradingAgents-TW v0.1 Progress
 
 ## 2026-10-25 — Atomic batch: off-hour prospective PIT health scheduling
