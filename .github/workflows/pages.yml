@@ -2,10 +2,16 @@
 name: Deploy mobile dashboard (GitHub Pages)
 
 on:
+  schedule:
+    # 22:00 Asia/Taipei, weekdays; refresh official source snapshot after close.
+    - cron: "0 14 * * 1-5"
   push:
     branches: [main]
     paths:
       - "web/**"
+      - "src/tradingagents_tw/providers/**"
+      - "src/tradingagents_tw/reporting/market_sources.py"
+      - "pyproject.toml"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -30,15 +36,25 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install official-source adapters
+        run: pip install -e .
       - name: Validate read-only dashboard
         run: node --test web/dashboard.test.mjs
-      - name: Stage only audited static client files
+      - name: Capture latest official source evidence
         run: |
           mkdir -p _site
+          python -m tradingagents_tw.reporting.market_sources --output _site/market-sources.json.gz
+          test -s _site/market-sources.json.gz
+      - name: Stage only audited static client files
+        run: |
           cp web/index.html web/dashboard.mjs _site/
           test -s _site/index.html
           test -s _site/dashboard.mjs
           test ! -e _site/projection.json
+          test -s _site/market-sources.json.gz
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

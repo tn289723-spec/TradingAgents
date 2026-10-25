@@ -137,20 +137,27 @@ class TPEXMarginAdapter:
     _FIELDS = {
         "date": "Date",
         "symbol": "SecuritiesCompanyCode",
-        "margin_previous_balance": "MarginPurchaseYesterdayBalance",
-        "margin_buy": "MarginPurchaseBuy",
-        "margin_sell": "MarginPurchaseSell",
-        "margin_cash_repayment": "MarginPurchaseCashRepayment",
-        "margin_balance": "MarginPurchaseTodayBalance",
-        "margin_limit": "MarginPurchaseLimit",
-        "short_previous_balance": "ShortSaleYesterdayBalance",
-        "short_sell": "ShortSaleSell",
-        "short_buy": "ShortSaleBuy",
-        "short_cash_repayment": "ShortSaleCashRepayment",
-        "short_balance": "ShortSaleTodayBalance",
-        "short_limit": "ShortSaleLimit",
-        "offset_loan_and_short": "OffsetLoanAndShort",
+        "margin_previous_balance": "MarginPurchaseBalancePreviousDay",
+        "margin_buy": "MarginPurchase",
+        "margin_sell": "MarginSales",
+        "margin_cash_repayment": "CashRedemption",
+        "margin_balance": "MarginPurchaseBalance",
+        "margin_finance_company_balance": "MarginPurchaseBalanceBelongSecuritiesFinanceEnterprise",
+        "margin_limit": "MarginPurchaseQuota",
+        "short_previous_balance": "ShortSaleBalancePreviousDay",
+        "short_sell": "ShortSale",
+        "short_buy": "ShortConvering",
+        "short_cash_repayment": "StockRedemption",
+        "short_balance": "ShortSaleBalance",
+        "short_finance_company_balance": "ShortSaleBalanceBelongSecuritiesFinanceEnterprise",
+        "short_limit": "ShortSaleQuota",
+        "offset_loan_and_short": "Offsetting",
     }
+    _RATES = {
+        "margin_utilization_rate_pct": "MarginPurchaseUtilizationRate",
+        "short_utilization_rate_pct": "ShortSaleUtilizationRate",
+    }
+    _NOTE = "Note"
 
     def __init__(self, *, fetch_json: Callable[[], Any] | None = None,
                  clock: Callable[[], datetime] | None = None) -> None:
@@ -171,7 +178,10 @@ class TPEXMarginAdapter:
         if not isinstance(rows, list) or not rows:
             raise ValueError("TPEx margin response is empty or unknown")
         for row in rows:
-            if not isinstance(row, dict) or not set(self._FIELDS.values()).issubset(row):
+            if (not isinstance(row, dict)
+                    or not set(self._FIELDS.values()).issubset(row)
+                    or not set(self._RATES.values()).issubset(row)
+                    or self._NOTE not in row):
                 raise ValueError("TPEx margin required fields are missing or renamed")
         dates = {_report_date(row[self._FIELDS["date"]], request.start_date) for row in rows}
         if len(dates) != 1:
@@ -186,6 +196,12 @@ class TPEXMarginAdapter:
             key: _int(row[source]) for key, source in self._FIELDS.items()
             if key not in {"date", "symbol"}
         }
+        for key, source in self._RATES.items():
+            value = float(str(row[source]).strip().replace(",", ""))
+            if not 0 <= value <= 100:
+                raise ValueError("TPEx margin utilization rate is outside 0..100 percent")
+            normalized[key] = value
+        normalized["note"] = str(row[self._NOTE]).strip()
         normalized.update({"trade_date": report_date.isoformat(), "market": "TPEX", "unit": "LOTS"})
         digest = hashlib.sha256(json.dumps(rows, ensure_ascii=False, sort_keys=True,
                                           separators=(",", ":")).encode("utf-8")).hexdigest()
