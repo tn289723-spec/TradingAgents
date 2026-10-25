@@ -74,7 +74,6 @@ class TDCCOwnershipAdapter:
             raise ValueError("TDCC ownership CSV schema is unknown or incomplete")
 
         rows = []
-        raw_rows = []
         for row in reader:
             if _required(row, "證券代號") != request.symbol:
                 continue
@@ -92,22 +91,16 @@ class TDCCOwnershipAdapter:
             if holders < 0 or shares < 0 or not 0 <= ratio <= 100:
                 raise ValueError("TDCC ownership row has invalid numeric values")
             rows.append({"tier": tier, "holders": holders, "shares": shares, "custody_pct": ratio})
-            raw_rows.append(row)
-
         if not rows:
             return ()
         rows.sort(key=lambda item: item["tier"])
         if len({item["tier"] for item in rows}) != len(rows):
             raise ValueError("TDCC ownership CSV contains duplicate tiers")
         snapshot_date = request.start_date
-        content_hash = hashlib.sha256(
-            "\n".join(",".join(str(raw_row[k]) for k in reader.fieldnames) for raw_row in raw_rows).encode("utf-8-sig")
-        ).hexdigest()
-        published_at = datetime.combine(snapshot_date, time(18, 0), tzinfo=TDCC_TZ)
-        if published_at > observed_at:
-            # The endpoint's public file does not expose a publication timestamp.
-            # Availability is therefore conservatively bounded by observation.
-            published_at = observed_at
+        content_hash = hashlib.sha256(raw.encode("utf-8-sig")).hexdigest()
+        # The public file does not expose a reliable publication timestamp;
+        # use observation as the earliest provable availability time.
+        published_at = observed_at
         return (Evidence(
             evidence_id=f"tdcc:{snapshot_date.isoformat()}:{request.symbol}:ownership-distribution",
             symbol=request.symbol,
