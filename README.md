@@ -25,6 +25,50 @@ python -m http.server 8080 --directory web
 
 CI tests Python 3.11/3.12 and Node 22. See `AGENTS.md` and `PROGRESS.md` for contracts, retry ledger and release gates. Do not repeat equivalent CI for an unchanged SHA.
 
+## Research screening and backtests
+
+`tradingagents_tw.research` adds deterministic, parameterized SMA, RSI, return,
+and volume-ratio indicators; threshold/comparison/crossover screening rules; and
+a long-only backtest that fills close-generated signals at the next session's
+open. Commission, sell tax, and slippage must be supplied explicitly. The API
+accepts RAW OHLCV only and does not change the frozen V0.1 Directional Score.
+
+```python
+from tradingagents_tw.research import (
+    BacktestStrategy, IndicatorKind, IndicatorSpec, ScreenRule,
+    ScreenSpec, run_backtest, screen_universe,
+)
+
+indicators = (
+    IndicatorSpec(kind=IndicatorKind.SMA, window=20),
+    IndicatorSpec(kind=IndicatorKind.SMA, window=60),
+    IndicatorSpec(kind=IndicatorKind.VOLUME_RATIO, window=20),
+)
+screen = ScreenSpec(
+    indicators=indicators,
+    rules=(
+        ScreenRule(indicator="SMA_20", operator="crosses_above", compare_to="SMA_60"),
+        ScreenRule(indicator="VOLUME_RATIO_20", operator=">=", threshold=1.5),
+    ),
+)
+candidates = screen_universe(verified_raw_series, screen, as_of=session_date)
+
+strategy = BacktestStrategy(
+    indicators=indicators,
+    entry_rules=screen.rules,
+    exit_rules=(ScreenRule(indicator="SMA_20", operator="<", compare_to="SMA_60"),),
+    commission_bps=10, sell_tax_bps=30, slippage_bps=10,
+)
+report = run_backtest(verified_raw_series[0], strategy)
+```
+
+This is a research API, not a deployed Web feature. Historical input provenance
+and point-in-time completeness must be established by the caller. The first
+version does not model dividends/corporate-action cash flows or interim
+mark-to-market drawdown; see ADR 0002.
+
+For a supplied JSON dataset/spec, run `tradingagents-research screen --data universe.json --spec screen.json --as-of YYYY-MM-DD` or `tradingagents-research backtest --data 2330.json --strategy strategy.json`. Inputs must be verified RAW `PriceSeries`; the command does not download market data.
+
 ## Prospective capture and health
 
 - `.github/workflows/pit-capture.yml`: scheduled daily **19:17 Asia/Taipei** (`17 11 * * *` UTC), best-effort; stores real SUCCESS/ERROR receipts on isolated `pit-capture` branch. Verify actual run, branch SHA and receipts before claiming operational success. Empty official `[]` is **not** no-action proof.
