@@ -1,0 +1,73 @@
+name: Verify public Pages HTTPS (read-only)
+
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/pages-https-smoke.yml"]
+  workflow_run:
+    workflows: ["Deploy mobile dashboard (GitHub Pages)"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-public-site:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Independently fetch public HTTPS and assert fail-closed publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import gzip
+          import json
+          import time
+          from urllib.error import HTTPError
+          from urllib.request import Request, urlopen
+          
+          base = "https://tn289723-spec.github.io/TradingAgents/"
+          def get(path):
+              req = Request(base + path, headers={"User-Agent": "TradingAgents-TW-HTTPS-smoke/1"})
+              with urlopen(req, timeout=18) as response:
+                  if not response.geturl().startswith(base):
+                      raise RuntimeError("unexpected redirect outside deployment origin")
+                  return response.read()
+          
+          for attempt in range(1, 4):
+              try:
+                  index = get("")
+                  module = get("dashboard.mjs")
+                  compressed = get("market-sources.json.gz")
+                  if "台股證據儀表板".encode("utf-8") not in index:
+                      raise RuntimeError("public index is not the expected dashboard")
+                  if b"official-market-snapshot-v1" not in module:
+                      raise RuntimeError("public module lacks official-source consumer")
+                  snapshot = json.loads(gzip.decompress(compressed))
+                  if snapshot.get("schema_version") != "official-market-snapshot-v1":
+                      raise RuntimeError("unexpected official snapshot version")
+                  if snapshot.get("data_status") != "RAW_UNVERIFIED":
+                      raise RuntimeError("official snapshot claims unverified data as trusted")
+                  sources = snapshot.get("sources")
+                  if not isinstance(sources, list) or len(sources) != 7:
+                      raise RuntimeError("missing official source metadata")
+                  if not isinstance(snapshot.get("symbols"), dict) or not snapshot["symbols"]:
+                      raise RuntimeError("no official symbol records in deployed snapshot")
+                  try:
+                      get("projection.json")
+                  except HTTPError as error:
+                      if error.code != 404:
+                          raise
+                  else:
+                      raise RuntimeError("unexpected production projection: inspect attestation before accepting")
+                  print(f"PUBLIC_HTTPS_PASS: HTML={len(index)} bytes, module={len(module)} bytes, gzip={len(compressed)} bytes, official_sources={len(sources)}, symbols={len(snapshot['symbols'])}, projection=404")
+                  break
+              except Exception as error:
+                  print(f"HTTPS probe attempt {attempt}/3 failed: {type(error).__name__}: {error}", flush=True)
+                  if attempt == 3:
+                      raise
+                  time.sleep(12)
+          PY
