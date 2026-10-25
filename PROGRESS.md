@@ -1,3 +1,11 @@
+## 2026-10-25 — Atomic batch: TWSE/TPEx latest OHLCV post-download PIT cutoff (pending CI)
+- Base main: `cb1f4db890c2307cb8095e7e97f386d5d693dca7` (PR #43, all Branch/PR/main and Pages/HTTPS gates SUCCESS; no reruns).
+- Evidence audit found both standalone latest-only OHLCV adapters (`TWSEStockDayAllAdapter`, `TPEXDailyCloseAdapter`) read the clock and passed the analysis cutoff **before** fetching the official response. Slow retrieval could backdate RAW observation and falsely accept a cutoff that passed while downloading.
+- Both adapters now record `observed_at` only **after** retrieval, then check timezone-awareness and `analysis_cutoff`. This does not assert exchange publication time, historical PIT completeness, trusted projection, or a new score.
+- Four deterministic delayed-fetch regressions cover TWSE and TPEx, each with successful post-download timestamp and cutoff-crossing rejection. Existing source metadata and RAW status remain unchanged.
+- Branch: `codex/v0.1-latest-ohlcv-post-fetch-cutoff`. Branch/PR/main CI gates pending on final implementation SHA. Issue #9 OPEN; production historical PIT attestor, full historical corporate-action publication/revision coverage, and trusted `projection.json` remain BLOCKED.
+- 2026-10-25 21:04 Asia/Taipei read-only check: latest scheduled Actions collection still had no second 19:17 capture run, and `pit-capture` remained `32e5eb443621ffe921975be04a17f253df392af3`. Best-effort schedule may be delayed; no fabricated receipt, manual dispatch, or duplicate checkpoint.
+
 ## 2026-10-25 — Atomic batch: TDCC provider post-download PIT cutoff (pending CI)
 - Base main: `86fc57ef59a53c2e2e33697d6579b623a821d0c2` (PR #42 merged; its Branch/PR/main, Pages and public HTTPS gates already SUCCESS; no reruns).
 - Audit found `TDCCOwnershipAdapter.fetch` still stamped `observed_at` before the weekly CSV download, even though PR #42 corrected the separate Web market snapshot builder. A delayed fetch could falsely pass an earlier analysis cutoff.
