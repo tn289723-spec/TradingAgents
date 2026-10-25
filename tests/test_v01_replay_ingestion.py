@@ -268,6 +268,48 @@ def test_official_fallback_rejects_unregistered_historical_metadata(tmp_path):
             fallback_provider=RegisteredBackup(),
         )
 
+
+
+@pytest.mark.parametrize("market,symbol", [("TWSE", "3037"), ("TPEX", "6488")])
+@pytest.mark.parametrize("crosses_cutoff", [False, True])
+def test_latest_ohlcv_observation_is_post_download_and_cutoff_safe(market, symbol, crosses_cutoff):
+    """Slow official downloads must never be backdated to their request start."""
+    before = datetime(2026, 10, 23, 15, 59, tzinfo=UTC)
+    after = datetime(2026, 10, 23, 16, 0, 1, tzinfo=UTC) if crosses_cutoff else datetime(
+        2026, 10, 23, 15, 59, 30, tzinfo=UTC
+    )
+    state = {"now": before}
+    if market == "TWSE":
+        rows = [{
+            "Code": symbol, "Date": "1151023", "Name": "欣興",
+            "OpeningPrice": "100", "HighestPrice": "102", "LowestPrice": "99",
+            "ClosingPrice": "101", "TradeVolume": "1000",
+            "TradeValue": "101000", "Transaction": "50", "Change": "+1",
+        }]
+        adapter_type = TWSEStockDayAllAdapter
+    else:
+        rows = [{
+            "Date": "1151023", "SecuritiesCompanyCode": symbol, "CompanyName": "環球晶",
+            "Close": "435.50", "Change": "+4.50", "Open": "430.00",
+            "High": "440.00", "Low": "428.00", "TradingShares": "12345000",
+            "TransactionAmount": "5350000000", "TransactionNumber": "15000",
+        }]
+        adapter_type = TPEXDailyCloseAdapter
+
+    def delayed_fetch():
+        state["now"] = after
+        return rows
+
+    adapter = adapter_type(fetch_json=delayed_fetch, clock=lambda: state["now"])
+    if crosses_cutoff:
+        with pytest.raises(ValueError, match="before observation"):
+            adapter.fetch(_request(symbol=symbol))
+    else:
+        evidence, = adapter.fetch(_request(symbol=symbol))
+        assert evidence.observed_at == after
+        assert evidence.published_at == after
+        assert evidence.status is EvidenceStatus.RAW
+
 def test_tpex_official_latest_adapter_parses_daily_close():
     rows = [
         {
