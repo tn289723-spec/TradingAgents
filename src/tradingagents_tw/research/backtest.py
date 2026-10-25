@@ -115,7 +115,11 @@ def run_backtest(series: PriceSeries, strategy: BacktestStrategy) -> BacktestRep
             entry_signal_date=position["signal_date"], entry_date=position["entry_date"],
             entry_price=position["entry_price"], mark_date=last.trade_date,
             mark_price=last.close,
-            unrealized_net_return=_net_exit_return(position["entry_price"], last.close, strategy),
+            # Estimate net liquidation using the same sell-side slippage applied
+            # to a closed trade, while retaining the raw close as the mark price.
+            unrealized_net_return=_net_exit_return(
+                position["entry_price"], last.close * (1 - slip), strategy,
+            ),
         )
     equity, peak, max_drawdown = 1.0, 1.0, 0.0
     for value in realized_returns:
