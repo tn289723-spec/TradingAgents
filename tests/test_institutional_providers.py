@@ -5,6 +5,7 @@ import pytest
 
 from tradingagents_tw.providers import (
     ProviderRequest, TWSEInstitutionalAdapter, TPEXInstitutionalAdapter, TWSEMarginAdapter,
+    TPEXMarginAdapter,
 )
 from tradingagents_tw.providers.institutional import TWSE_FIELDS, TPEX_FIELDS
 
@@ -82,3 +83,48 @@ def test_twse_margin_adapter_selects_named_balance_columns_and_lots():
     assert evidence.payload["margin_previous_balance"] == 100
     assert evidence.payload["margin_balance"] == 99
     assert evidence.payload["short_balance"] == 5
+
+
+def test_tpex_margin_adapter_normalizes_latest_snapshot_and_activity_in_lots():
+    row = {
+        "Date": "115/10/22", "SecuritiesCompanyCode": "6488",
+        "MarginPurchaseYesterdayBalance": "1,000", "MarginPurchaseBuy": "10",
+        "MarginPurchaseSell": "20", "MarginPurchaseCashRepayment": "3",
+        "MarginPurchaseTodayBalance": "987", "MarginPurchaseLimit": "5,000",
+        "ShortSaleYesterdayBalance": "100", "ShortSaleSell": "5", "ShortSaleBuy": "7",
+        "ShortSaleCashRepayment": "2", "ShortSaleTodayBalance": "96",
+        "ShortSaleLimit": "5,000", "OffsetLoanAndShort": "1",
+    }
+    adapter = TPEXMarginAdapter(fetch_json=lambda: [row], clock=lambda: NOW)
+    margin_request = request("6488").model_copy(update={"evidence_types": ("MARGIN_BALANCE",)})
+
+    evidence, = adapter.fetch(margin_request)
+
+    assert evidence.source == "TPEX_MARGIN_BALANCE"
+    assert evidence.payload["market"] == "TPEX"
+    assert evidence.payload["unit"] == "LOTS"
+    assert evidence.payload["margin_previous_balance"] == 1000
+    assert evidence.payload["margin_balance"] == 987
+    assert evidence.payload["short_balance"] == 96
+    assert evidence.payload["offset_loan_and_short"] == 1
+    assert adapter.metadata.history_mode == "LATEST_ONLY"
+
+
+def test_tpex_margin_adapter_rejects_date_mismatch_and_unknown_schema():
+    good = {
+        "Date": "115/10/22", "SecuritiesCompanyCode": "6488",
+        "MarginPurchaseYesterdayBalance": "1", "MarginPurchaseBuy": "0",
+        "MarginPurchaseSell": "0", "MarginPurchaseCashRepayment": "0",
+        "MarginPurchaseTodayBalance": "1", "MarginPurchaseLimit": "5",
+        "ShortSaleYesterdayBalance": "0", "ShortSaleSell": "0", "ShortSaleBuy": "0",
+        "ShortSaleCashRepayment": "0", "ShortSaleTodayBalance": "0",
+        "ShortSaleLimit": "5", "OffsetLoanAndShort": "0",
+    }
+    margin_request = request("6488").model_copy(update={"evidence_types": ("MARGIN_BALANCE",)})
+    adapter = TPEXMarginAdapter(fetch_json=lambda: [good], clock=lambda: NOW)
+    with pytest.raises(ValueError, match="does not match requested date"):
+        adapter.fetch(margin_request.model_copy(update={"start_date": date(2026, 10, 21), "end_date": date(2026, 10, 21)}))
+
+    adapter = TPEXMarginAdapter(fetch_json=lambda: [{"Date": "115/10/22"}], clock=lambda: NOW)
+    with pytest.raises(ValueError, match="required fields"):
+        adapter.fetch(margin_request)
