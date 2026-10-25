@@ -1,5 +1,14 @@
 # TradingAgents-TW v0.1 Progress
 
+## 2026-10-25 — Research batch: deterministic screening and backtests
+- Base main: `bde9d04` (PR #33 official same-board daily fallback merged).
+- Added parameterized RAW-price SMA, RSI, close-to-close return and volume-ratio indicators; configurable threshold, indicator comparison and crossover rules; exact-session universe screening; long-only next-session-open backtesting with explicit commission, sell-tax and slippage inputs. Added `tradingagents-research` JSON CLI for supplied datasets/specs.
+- Added deterministic no-lookahead indicator behavior and regression checks. The feature is isolated from frozen Directional Score, Truth/PIT certification and Web projection; no automated trading.
+- ADR: `docs/adr/0002-deterministic-screening-and-backtests.md`.
+- The reference site's institutional flow, margin and TDCC weekly ownership inputs are not implemented in this batch. Neither TradingView integration nor Web UI is implemented.
+- Local verification: full Python suite passes; `compileall` and `git diff --check` pass. Existing Pydantic deprecation warnings are unrelated. Two evidence-based local corrections were recorded (public API export and stable volume fixture). Branch CI pending; no unchanged SHA/gate reruns.
+- Research limitation: indicator calculations are causal, but backtest code does not authenticate historical data vintages. Only independently verified point-in-time datasets should be used for trusted performance claims.
+
 ## 2026-10-25 — Atomic batch: official same-board post-market fallback
 - Base main: `bc90f9b76cba097048b04be2231e8b61eea3c290`.
 - Gap: a one-session daily ingestion could not recover if the official historical endpoint returned an empty result while the exchange's registered current-day official feed had the same session.
