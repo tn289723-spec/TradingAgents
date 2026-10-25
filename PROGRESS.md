@@ -365,3 +365,10 @@ Do not add Judgment/LLM, adaptive weighting, RL, execution, or UI expansion unti
 - Clarify that manually imported Web JSON is always marked BLOCKED/unverified (PR #31), and that first real dual-source scheduled capture plus `pit-capture` write remain unverified before 19:17 Asia/Taipei. No market evidence, source code, workflows, scoring, trust roots or production projection changed.
 - Validation: documentation-only change, Branch CI once on final SHA → PR CI → merge → main CI; do not rerun any unchanged SHA/gate. New validation point failure count 0.
 - Next: after 2026-10-24 19:17 Asia/Taipei inspect real scheduled capture run, `pit-capture` SHA, both SUCCESS/ERROR receipts and health status. Independent production PIT attestor, complete historical announcement publication/revision evidence and trusted `projection.json` remain absent; never fabricate them.
+
+## 2026-10-25 — Independent public Pages HTTPS delivery probe (pending gates)
+- Base main: `89b837fa2bd1d9b7e4c68c3a6b5240d06e71cf83` (PR #39 merged, main CI 40158481498 and Pages deployment 40158481499 SUCCESS; neither gate is rerun).
+- Added a separate **read-only** GitHub-hosted HTTPS smoke workflow. It runs once on this workflow's first main merge and after future successful Pages deployments, without dispatching or rerunning the Pages deployment.
+- Public-origin checks require the actual HTML, JavaScript, gzip-compressed seven-source official RAW snapshot, nonempty symbol data, and HTTP 404 for the unprovisioned trusted `projection.json`. Three bounded network attempts, no secrets or write permission.
+- This independently checks HTTP reachability from a GitHub-hosted runner; it is **not** browser UX certification, market-data authenticity, PIT attestation or a trusted projection. Existing local/web reader DNS failures are not silently treated as success.
+- Validation: new branch/PR/main CI gates pending; only a completed live smoke run may establish public HTTPS PASS. Historical production PIT attestor and full publication/revision archive remain unavailable; Issue #9 stays open.
