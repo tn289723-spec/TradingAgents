@@ -55,3 +55,15 @@ def resolve_ohlcv_source(market: Market, *, history_mode: str) -> ProviderMetada
 def require_historical_source(market: Market, metadata: ProviderMetadata) -> None:
     if metadata != resolve_ohlcv_source(market, history_mode="HISTORICAL"):
         raise ValueError("historical bootstrap requires the registered board-specific source")
+
+
+def official_latest_fallback_for(metadata: ProviderMetadata):
+    """Return the same-board official daily source for a one-session fallback."""
+    from .tpex import TPEXDailyCloseAdapter
+    from .twse import TWSEStockDayAllAdapter
+
+    if metadata == HISTORICAL_SOURCES[Market.TWSE]:
+        return TWSEStockDayAllAdapter()
+    if metadata == HISTORICAL_SOURCES[Market.TPEX]:
+        return TPEXDailyCloseAdapter()
+    return None

@@ -8,6 +8,10 @@ from pydantic import model_validator
 from tradingagents_tw.contracts import Evidence, StrictModel
 
 
+class ProviderUnavailable(ValueError):
+    """A registered source could not supply data; safe fallback may be attempted."""
+
+
 class ProviderMetadata(StrictModel):
     provider_id: str
     source: str
