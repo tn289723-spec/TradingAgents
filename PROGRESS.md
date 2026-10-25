@@ -1,5 +1,14 @@
 # TradingAgents-TW v0.1 Progress
 
+## 2026-10-25 — Official data connected to the Web dashboard
+- Base main: `5b68f43` (PR #34 dual-board flow/margin and research tools merged).
+- Gap: the read-only page exposed no official source values; it displayed only a separately gated `DashboardProjection`.
+- Added scheduled same-origin market snapshot capture for TWSE/TPEx quotes, three-institution flow, margin balances, and TDCC weekly ownership. Snapshot records include source, dates, observation timestamps and SHA-256; browser presents RAW/unverified values without computing State or signals and blocks snapshots older than 72 hours.
+- Verified real TPEx margin endpoint keys and updated the adapter to the official names, including quota, usage rates, securities-finance balances and notes. Known corporate-action labels in the exchange change column are preserved as notes.
+- ADR: `docs/adr/0005-official-source-dashboard-snapshot.md`.
+- Verification: focused Python provider/capture tests and Node dashboard tests pass. Live capture attempt found and corrected the TPEx field mismatch; full capture is being verified. Current Pages deployment and external site reachability must be checked after merge.
+- Limitation: this is prospective RAW data display. It does not certify historical PIT or unlock the score projection.
+
 ## 2026-10-25 — Research batch: deterministic screening and backtests
 - Base main: `bde9d04` (PR #33 official same-board daily fallback merged).
 - Added parameterized RAW-price SMA, RSI, close-to-close return and volume-ratio indicators; configurable threshold, indicator comparison and crossover rules; exact-session universe screening; long-only next-session-open backtesting with explicit commission, sell-tax and slippage inputs. Added `tradingagents-research` JSON CLI for supplied datasets/specs.
