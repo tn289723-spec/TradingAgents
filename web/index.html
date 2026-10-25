@@ -59,6 +59,21 @@
     </div>
     <p class="notice">本機匯入只檢查格式與一致性，無法獨立驗證來源簽章；請勿將自行製作的 JSON 視為真實市場證據。</p>
   </section>
+  <section class="card" aria-labelledby="official-heading">
+    <h2 id="official-heading">官方市場資料</h2>
+    <div class="top">
+      <label for="market-symbol" class="label">股票代號</label>
+      <input id="market-symbol" maxlength="6" value="2330" aria-label="股票代號">
+      <button class="upload" id="market-refresh" type="button">重新載入</button>
+    </div>
+    <div id="market-status" data-level="BLOCKED" role="status" aria-live="polite">尚未載入官方來源快照。</div>
+    <p class="notice">此區只顯示交易所與集保結算所發布的原始資料摘要，狀態為 RAW／未驗證；不參與分數計算，也不是買賣訊號。</p>
+    <div id="market-data" class="grid" aria-live="polite"></div>
+    <details class="notice">
+      <summary>資料來源與更新時間</summary>
+      <ul id="market-source-list"></ul>
+    </details>
+  </section>
   <section class="card" aria-labelledby="readiness-heading">
     <h2 id="readiness-heading">證據就緒度</h2>
     <div id="status" data-level="BLOCKED" role="status" aria-live="polite">尚未取得可信投影資料。</div>
