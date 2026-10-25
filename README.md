@@ -57,7 +57,9 @@ strategy = BacktestStrategy(
     indicators=indicators,
     entry_rules=screen.rules,
     exit_rules=(ScreenRule(indicator="SMA_20", operator="<", compare_to="SMA_60"),),
-    commission_bps=10, sell_tax_bps=30, slippage_bps=10,
+    commission_bps=broker_commission_bps,
+    sell_tax_bps=applicable_sell_tax_bps,
+    slippage_bps=estimated_slippage_bps,
 )
 report = run_backtest(verified_raw_series[0], strategy)
 ```
