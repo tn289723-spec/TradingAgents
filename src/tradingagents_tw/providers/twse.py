@@ -26,6 +26,16 @@ def _parse_int(value: Any) -> int:
     return int(_parse_number(value))
 
 
+def _parse_change(value: Any) -> tuple[float | None, str | None]:
+    text = str(value).strip()
+    try:
+        return _parse_number(text), None
+    except ValueError:
+        if text in {"除息", "除權", "除權息", "除權除息"}:
+            return None, text
+        raise
+
+
 def _parse_date(value: Any) -> date:
     raw = str(value).strip().replace("/", "").replace("-", "")
     if len(raw) == 7:
@@ -99,6 +109,7 @@ class TWSEStockDayAllAdapter:
             )
 
         event_time = datetime.combine(trade_date, time(13, 30), tzinfo=TWSE_TZ)
+        change, change_note = _parse_change(row.get("Change"))
         normalized = {
             "trade_date": trade_date.isoformat(),
             "name": str(row.get("Name", "")).strip(),
@@ -109,9 +120,11 @@ class TWSEStockDayAllAdapter:
             "volume": _parse_int(row.get("TradeVolume")),
             "trade_value": _parse_int(row.get("TradeValue")),
             "transaction_count": _parse_int(row.get("Transaction")),
-            "change": _parse_number(row.get("Change")),
+            "change": change,
             "price_basis": "RAW",
         }
+        if change_note is not None:
+            normalized["change_note"] = change_note
         raw_hash = hashlib.sha256(
             json.dumps(row, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
         ).hexdigest()
