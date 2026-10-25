@@ -42,4 +42,3 @@ not equal a naïve sum if categories differ; the discrepancy is retained.
 - TWSE MI_MARGN schema, per-stock units, and publication caveat: <https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN?response=html>
 - TPEx margin OpenAPI endpoint: <https://www.tpex.org.tw/openapi/>
 - TPEx official margin page, fields, CSV downloads and historical date range: <https://www.tpex.org.tw/zh-tw/mainboard/trading/margin-trading/transactions.html>
-- TPEx OpenAPI field mapping cross-check: <https://finmind.github.io/tutor/TaiwanMarket/Chip/>
