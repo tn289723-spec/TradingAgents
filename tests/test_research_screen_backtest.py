@@ -110,6 +110,23 @@ def test_backtest_fills_signals_on_next_session_open_and_applies_costs():
     assert report.trade_count == 1
 
 
+def test_open_position_estimated_exit_includes_sell_side_slippage():
+    data = series([100, 100, 100, 100], opens=[100, 100, 100, 100])
+    strategy = BacktestStrategy(
+        indicators=(IndicatorSpec(kind=IndicatorKind.RETURN, window=2),),
+        entry_rules=(ScreenRule(indicator="RETURN_2", operator=">=", threshold=0),),
+        exit_rules=(ScreenRule(indicator="RETURN_2", operator=">", threshold=10),),
+        commission_bps=0, sell_tax_bps=0, slippage_bps=100,
+    )
+
+    report = run_backtest(data, strategy)
+
+    assert report.open_position is not None
+    assert report.open_position.mark_price == 100
+    assert report.open_position.unrealized_net_return == pytest.approx(99 / 101 - 1)
+    assert report.total_return == pytest.approx(report.open_position.unrealized_net_return)
+
+
 def test_research_rejects_adjusted_series_to_avoid_future_adjustment_leakage():
     adjusted = series([10, 11, 12], basis=PriceBasis.ADJUSTED)
     spec = (IndicatorSpec(kind=IndicatorKind.SMA, window=2),)
