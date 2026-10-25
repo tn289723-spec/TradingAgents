@@ -13,6 +13,7 @@ from .base import ProviderMetadata, ProviderRequest
 
 
 TWSE_MARGIN_URL = "https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN"
+TPEX_MARGIN_URL = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_margin_balance"
 TZ = ZoneInfo("Asia/Taipei")
 
 
@@ -120,5 +121,80 @@ class TWSEMarginAdapter:
             source_record_id=f"{report_date.isoformat()}:{request.symbol}", event_time=event,
             published_at=observed, observed_at=observed, effective_at=event,
             content_hash=digest, revision_id=f"twse-mi-margn:{digest[:16]}",
+            status=EvidenceStatus.RAW, payload=normalized,
+        ),)
+
+
+class TPEXMarginAdapter:
+    """Latest TPEx per-stock margin/short snapshot; balances and activity are lots."""
+
+    metadata = ProviderMetadata(
+        provider_id="tpex-openapi-margin-balance", source="TPEX_MARGIN_BALANCE",
+        schema_version="1.0", evidence_types=("MARGIN_BALANCE",), source_priority=1,
+        history_mode="LATEST_ONLY", endpoint=TPEX_MARGIN_URL,
+    )
+
+    _FIELDS = {
+        "date": "Date",
+        "symbol": "SecuritiesCompanyCode",
+        "margin_previous_balance": "MarginPurchaseYesterdayBalance",
+        "margin_buy": "MarginPurchaseBuy",
+        "margin_sell": "MarginPurchaseSell",
+        "margin_cash_repayment": "MarginPurchaseCashRepayment",
+        "margin_balance": "MarginPurchaseTodayBalance",
+        "margin_limit": "MarginPurchaseLimit",
+        "short_previous_balance": "ShortSaleYesterdayBalance",
+        "short_sell": "ShortSaleSell",
+        "short_buy": "ShortSaleBuy",
+        "short_cash_repayment": "ShortSaleCashRepayment",
+        "short_balance": "ShortSaleTodayBalance",
+        "short_limit": "ShortSaleLimit",
+        "offset_loan_and_short": "OffsetLoanAndShort",
+    }
+
+    def __init__(self, *, fetch_json: Callable[[], Any] | None = None,
+                 clock: Callable[[], datetime] | None = None) -> None:
+        self._fetch_json = fetch_json or (lambda: _load(TPEX_MARGIN_URL))
+        self._clock = clock or (lambda: datetime.now(TZ))
+
+    def fetch(self, request: ProviderRequest) -> tuple[Evidence, ...]:
+        if "MARGIN_BALANCE" not in request.evidence_types:
+            raise ValueError("TPEx margin source only supplies margin balance")
+        if request.start_date != request.end_date:
+            raise ValueError("provider requires a single trade date request")
+        observed = self._clock()
+        if observed.utcoffset() is None:
+            raise ValueError("provider clock must return timezone-aware datetime")
+        if observed > request.analysis_cutoff:
+            raise ValueError("provider cannot reconstruct evidence before its observation")
+        rows = self._fetch_json()
+        if not isinstance(rows, list) or not rows:
+            raise ValueError("TPEx margin response is empty or unknown")
+        for row in rows:
+            if not isinstance(row, dict) or not set(self._FIELDS.values()).issubset(row):
+                raise ValueError("TPEx margin required fields are missing or renamed")
+        dates = {_report_date(row[self._FIELDS["date"]], request.start_date) for row in rows}
+        if len(dates) != 1:
+            raise ValueError("TPEx margin response mixes trade dates")
+        report_date = dates.pop()
+        if report_date != request.start_date:
+            raise ValueError("TPEx margin report date does not match requested date")
+        row = next((r for r in rows if str(r[self._FIELDS["symbol"]]).strip() == request.symbol), None)
+        if row is None:
+            return ()
+        normalized = {
+            key: _int(row[source]) for key, source in self._FIELDS.items()
+            if key not in {"date", "symbol"}
+        }
+        normalized.update({"trade_date": report_date.isoformat(), "market": "TPEX", "unit": "LOTS"})
+        digest = hashlib.sha256(json.dumps(rows, ensure_ascii=False, sort_keys=True,
+                                          separators=(",", ":")).encode("utf-8")).hexdigest()
+        event = datetime.combine(report_date, time(13, 30), tzinfo=TZ)
+        return (Evidence(
+            evidence_id=f"tpex:{report_date.isoformat()}:{request.symbol}:margin-balance",
+            symbol=request.symbol, evidence_type="MARGIN_BALANCE", source=self.metadata.source,
+            source_record_id=f"{report_date.isoformat()}:{request.symbol}", event_time=event,
+            published_at=observed, observed_at=observed, effective_at=event,
+            content_hash=digest, revision_id=f"tpex-margin:{digest[:16]}",
             status=EvidenceStatus.RAW, payload=normalized,
         ),)
