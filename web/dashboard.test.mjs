@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { parseProjection, validateProjection, ProjectionError, mountDashboard } from "./dashboard.mjs";
+import { gzipSync } from "node:zlib";
+import { parseProjection, validateProjection, parseMarketSources, ProjectionError, mountDashboard } from "./dashboard.mjs";
 
 const base = {
   projection_version: "dashboard-projection-v1",
@@ -76,7 +77,7 @@ test("yellow/red represent evidence readiness, never trade direction", () => {
 test("mobile UI contains required panels and uses textContent only", () => {
   const html = readFileSync(new URL("./index.html", import.meta.url), "utf8");
   const js = readFileSync(new URL("./dashboard.mjs", import.meta.url), "utf8");
-  for (const id of ["score","trend","confidence","gate","slope","change","thesis","wrong","pit","limitations","snapshot-id","projection-file"]) {
+  for (const id of ["score","trend","confidence","gate","slope","change","thesis","wrong","pit","limitations","snapshot-id","projection-file","market-symbol","market-refresh","market-status","market-data","market-source-list"]) {
     assert.match(html, new RegExp('id="' + id + '"'));
   }
   assert.match(html, /viewport/);
@@ -87,18 +88,106 @@ test("mobile UI contains required panels and uses textContent only", () => {
   assert.doesNotMatch(html, /"directional_score"\s*:/);
 });
 
+test("official source snapshot accepts only pinned endpoints and RAW evidence", () => {
+  const urls = [
+    "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL",
+    "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes",
+    "https://www.twse.com.tw/rwd/zh/fund/T86",
+    "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading",
+    "https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN",
+    "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_margin_balance",
+    "https://opendata.tdcc.com.tw/getOD.ashx?id=1-5"
+  ];
+  const ids = ["twse_ohlcv","tpex_ohlcv","twse_institutional","tpex_institutional","twse_margin","tpex_margin","tdcc_ownership"];
+  const snapshot = {
+    schema_version: "official-market-snapshot-v1", generated_at: "2026-10-23T20:00:00+08:00",
+    data_status: "RAW_UNVERIFIED",
+    sources: ids.map((id, index) => ({ id, label: id, url: urls[index], status: "RAW_UNVERIFIED",
+      observed_at: "2026-10-23T20:00:00+08:00", content_sha256: "a".repeat(64), record_count: 1, missing_count: 0, trade_date: index === 6 ? null : "2026-10-22" })),
+    symbols: { "2330": { market: "TWSE", trade_date: "2026-10-22", sources: {
+      ohlcv: { status: "RAW", source: "TWSE_OPENAPI", evidence_id: "twse:2026-10-22:2330:ohlcv",
+        observed_at: "2026-10-23T20:00:00+08:00", content_sha256: "b".repeat(64),
+        payload: { trade_date: "2026-10-22", open: 100, high: 102, low: 99, close: 101, volume: 1000, change: 1 } }
+    } } }
+  };
+  assert.equal(parseMarketSources(JSON.stringify(snapshot)).symbols["2330"].sources.ohlcv.payload.close, 101);
+  const forged = structuredClone(snapshot);
+  forged.sources[0].url = "https://attacker.invalid/data";
+  assert.throws(() => parseMarketSources(JSON.stringify(forged)), ProjectionError);
+  const verified = structuredClone(snapshot);
+  verified.symbols["2330"].sources.ohlcv.status = "VERIFIED";
+  assert.throws(() => parseMarketSources(JSON.stringify(verified)), ProjectionError);
+});
+
+test("dashboard loads compressed official sources even when score projection is absent", async () => {
+  const now = new Date().toISOString();
+  const urls = [
+    "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL",
+    "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes",
+    "https://www.twse.com.tw/rwd/zh/fund/T86",
+    "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading",
+    "https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN",
+    "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_margin_balance",
+    "https://opendata.tdcc.com.tw/getOD.ashx?id=1-5"
+  ];
+  const ids = ["twse_ohlcv","tpex_ohlcv","twse_institutional","tpex_institutional","twse_margin","tpex_margin","tdcc_ownership"];
+  const observed = now;
+  const snapshot = {
+    schema_version: "official-market-snapshot-v1", generated_at: now, data_status: "RAW_UNVERIFIED",
+    sources: ids.map((id, index) => ({ id, label: id, url: urls[index], status: "RAW_UNVERIFIED",
+      observed_at: observed, content_sha256: "a".repeat(64), record_count: 1, missing_count: 0,
+      trade_date: index === 6 ? null : "2026-10-22" })),
+    symbols: { "2330": { market: "TWSE", trade_date: "2026-10-22", sources: {
+      ohlcv: { status: "RAW", source: "TWSE_OPENAPI", evidence_id: "twse:2026-10-22:2330:ohlcv",
+        observed_at: observed, content_sha256: "b".repeat(64),
+        payload: { trade_date: "2026-10-22", open: 100, high: 102, low: 99, close: 101, volume: 1000, change: 1 } }
+    } } }
+  };
+  const nodes = new Map();
+  const getNode = (id) => {
+    if (!nodes.has(id)) nodes.set(id, {
+      hidden: false, dataset: {}, textContent: "", files: null, value: id === "market-symbol" ? "2330" : "", children: [],
+      addEventListener(_type, fn) { this.change = fn; },
+      replaceChildren(...children) { this.children = children; },
+      append(...children) { this.children.push(...children); },
+      get childElementCount() { return this.children.length; }
+    });
+    return nodes.get(id);
+  };
+  const previousDocument = globalThis.document;
+  const previousFetch = globalThis.fetch;
+  globalThis.document = { getElementById: getNode, createElement: () => ({ className: "", textContent: "", children: [], append(...children) { this.children.push(...children); } }) };
+  globalThis.fetch = async (url) => String(url).includes("market-sources.json.gz")
+    ? { ok: true, headers: { get: () => null }, arrayBuffer: async () => gzipSync(JSON.stringify(snapshot)) }
+    : { ok: false };
+  try {
+    await mountDashboard();
+    assert.match(getNode("market-status").textContent, /RAW／未驗證/);
+    assert.equal(getNode("market-data").childElementCount, 1);
+    assert.equal(getNode("market-data").children[0].children[1].children[3].textContent, "100");
+    assert.equal(getNode("status").dataset.level, "BLOCKED");
+  } finally {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
 
 test("latest file selection wins over delayed initial fetch and earlier imports", async () => {
   const nodes = new Map();
   const getNode = (id) => {
-    if (!nodes.has(id)) nodes.set(id, { hidden: false, dataset: {}, textContent: "", files: null, addEventListener(_type, fn) { this.change = fn; } });
+    if (!nodes.has(id)) nodes.set(id, { hidden: false, dataset: {}, textContent: "", files: null, value: id === "market-symbol" ? "2330" : "", children: [], replaceChildren(...children) { this.children = children; }, addEventListener(_type, fn) { this.change = fn; } });
     return nodes.get(id);
   };
   const previousDocument = globalThis.document;
   const previousFetch = globalThis.fetch;
   let releaseFetch;
   globalThis.document = { getElementById: getNode };
-  globalThis.fetch = () => new Promise(resolve => { releaseFetch = resolve; });
+  globalThis.fetch = (url) => String(url).includes("market-sources.json.gz")
+    ? Promise.resolve({ ok: false })
+    : new Promise(resolve => { releaseFetch = resolve; });
   try {
     const initial = mountDashboard();
     const input = getNode("projection-file");
@@ -135,8 +224,9 @@ test("local import cannot claim verified PIT or green readiness from JSON alone"
   const nodes = new Map();
   const getNode = (id) => {
     if (!nodes.has(id)) nodes.set(id, {
-      hidden: false, dataset: {}, textContent: "", files: null,
+      hidden: false, dataset: {}, textContent: "", files: null, value: id === "market-symbol" ? "2330" : "", children: [],
       addEventListener(_type, fn) { this.change = fn; }
+      , replaceChildren(...children) { this.children = children; }
     });
     return nodes.get(id);
   };
