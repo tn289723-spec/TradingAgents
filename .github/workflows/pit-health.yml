@@ -2,10 +2,11 @@ name: Prospective PIT capture health (unattested)
 
 on:
   schedule:
-    # 09:00 Asia/Taipei, after the previous 19:17 capture window.
+    # 09:13 Asia/Taipei, after the previous 19:17 capture window.
+    # Avoid the top-of-hour Actions peak; scheduled events remain best-effort.
     # If yesterday's capture was skipped, the last good poll is >30h old.
     # GitHub schedule is best-effort; a skipped health run is not proof of health.
-    - cron: "0 1 * * *"
+    - cron: "13 1 * * *"
   workflow_dispatch:
 
 permissions:
