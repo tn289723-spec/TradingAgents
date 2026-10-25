@@ -89,6 +89,8 @@ class TWSEStockDayAllAdapter:
         if request.start_date != request.end_date:
             raise ValueError("LATEST_ONLY provider requires a single trade date request")
 
+        rows = self._fetch_json()
+        # A response cannot be observed before its download completes.
         observed_at = self._clock()
         if observed_at.utcoffset() is None:
             raise ValueError("provider clock must return timezone-aware datetime")
@@ -96,8 +98,6 @@ class TWSEStockDayAllAdapter:
             raise ValueError(
                 "LATEST_ONLY provider cannot reconstruct evidence for a cutoff before observation"
             )
-
-        rows = self._fetch_json()
         row = next((item for item in rows if str(item.get("Code", "")).strip() == request.symbol), None)
         if row is None:
             return ()
