@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -95,3 +95,25 @@ def test_snapshot_source_rows_are_bound_to_verified_adapter_evidence():
     assert quote["source"] == "TWSE_OPENAPI"
     assert quote["payload"]["close"] == 101
     assert len(quote["content_sha256"]) == 64
+
+
+def test_official_snapshot_observed_at_is_after_each_completed_download():
+    """Slow downloads must not be represented as evidence available before retrieval."""
+    bodies = fixture_sources()
+    current = [NOW]
+
+    def fetch(url):
+        current[0] += timedelta(seconds=2)
+        return bodies[url]
+
+    snapshot = build_market_sources_snapshot(fetch_bytes=fetch, clock=lambda: current[0])
+    assert len(snapshot["sources"]) == 7
+    for index, source in enumerate(snapshot["sources"], start=1):
+        assert source["observed_at"] == (NOW + timedelta(seconds=2 * index)).isoformat()
+    assert snapshot["symbols"]["2330"]["sources"]["ohlcv"]["observed_at"] == (
+        NOW + timedelta(seconds=2)
+    ).isoformat()
+    assert snapshot["symbols"]["2330"]["sources"]["ownership_distribution"]["observed_at"] == (
+        NOW + timedelta(seconds=14)
+    ).isoformat()
+    assert snapshot["generated_at"] == (NOW + timedelta(seconds=14)).isoformat()
