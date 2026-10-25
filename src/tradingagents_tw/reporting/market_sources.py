@@ -8,12 +8,15 @@ from __future__ import annotations
 import csv
 import gzip
 import hashlib
+from http.client import IncompleteRead
 import io
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
 import sys
+import time
 from typing import Any, Callable
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
@@ -36,8 +39,24 @@ SCHEMA = "official-market-snapshot-v1"
 
 def _http_bytes(url: str) -> bytes:
     request = Request(url, headers={"User-Agent": "TradingAgents-TW/0.2"})
-    with urlopen(request, timeout=25) as response:
-        return response.read()
+    for attempt in range(3):
+        try:
+            with urlopen(request, timeout=40) as response:
+                body = response.read()
+                expected = response.headers.get("Content-Length")
+                if expected is not None and len(body) != int(expected):
+                    raise IncompleteRead(body, int(expected) - len(body))
+                return body
+        except HTTPError as exc:
+            if exc.code not in {408, 425, 429} and exc.code < 500:
+                raise
+            error: Exception = exc
+        except (IncompleteRead, URLError, TimeoutError, ConnectionError) as exc:
+            error = exc
+        if attempt == 2:
+            raise error
+        time.sleep(2 ** attempt)
+    raise RuntimeError("unreachable retry state")
 
 
 def _canonical_hash(value: Any) -> str:
