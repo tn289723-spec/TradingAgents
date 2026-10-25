@@ -61,13 +61,14 @@ class TDCCOwnershipAdapter:
             raise ValueError("TDCC endpoint only supplies weekly ownership distribution")
         if request.start_date != request.end_date:
             raise ValueError("LATEST_ONLY provider requires a single snapshot date request")
+        # The weekly endpoint has no trustworthy publication time. The response
+        # is first provably available only after the download has completed.
+        raw = self._fetch_csv()
         observed_at = self._clock()
         if observed_at.utcoffset() is None:
             raise ValueError("provider clock must return timezone-aware datetime")
         if observed_at > request.analysis_cutoff:
             raise ValueError("TDCC latest snapshot cannot reconstruct an earlier analysis cutoff")
-
-        raw = self._fetch_csv()
         reader = csv.DictReader(io.StringIO(raw))
         expected = {"資料日期", "證券代號", "持股分級", "人數", "股數", "占集保庫存數比例%"}
         if reader.fieldnames is None or not expected.issubset(set(reader.fieldnames)):

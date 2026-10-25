@@ -39,3 +39,32 @@ def test_tdcc_latest_only_source_does_not_backfill_or_misdate():
     window = request().model_copy(update={"start_date": date(2026, 10, 9)})
     with pytest.raises(ValueError, match="single snapshot date"):
         adapter.fetch(window)
+
+
+def test_tdcc_observation_is_after_retrieval():
+    initial = datetime(2026, 10, 23, 19, 59, tzinfo=TZ)
+    completed = datetime(2026, 10, 23, 20, 1, tzinfo=TZ)
+    state = {"now": initial}
+
+    def delayed_fetch():
+        state["now"] = completed
+        return CSV
+
+    adapter = TDCCOwnershipAdapter(fetch_csv=delayed_fetch, clock=lambda: state["now"])
+    evidence, = adapter.fetch(request(cutoff=completed))
+    assert evidence.observed_at == completed
+    assert evidence.published_at == completed
+
+
+def test_tdcc_delayed_retrieval_cannot_cross_analysis_cutoff():
+    initial = datetime(2026, 10, 23, 19, 59, tzinfo=TZ)
+    completed = datetime(2026, 10, 23, 20, 1, tzinfo=TZ)
+    state = {"now": initial}
+
+    def delayed_fetch():
+        state["now"] = completed
+        return CSV
+
+    adapter = TDCCOwnershipAdapter(fetch_csv=delayed_fetch, clock=lambda: state["now"])
+    with pytest.raises(ValueError, match="analysis cutoff"):
+        adapter.fetch(request(cutoff=datetime(2026, 10, 23, 20, tzinfo=TZ)))
