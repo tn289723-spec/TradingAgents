@@ -204,7 +204,7 @@ function renderMarketSources(snapshot, symbol) {
   if (margin) card("融資融券", [["融資前日／今日（張）", `${margin.margin_previous_balance}／${margin.margin_balance}`], ["融券前日／今日（張）", `${margin.short_previous_balance}／${margin.short_balance}`], ["融資買進／賣出（張）", `${margin.margin_buy ?? "未提供"}／${margin.margin_sell ?? "未提供"}`], ["融券賣出／買進（張）", `${margin.short_sell ?? "未提供"}／${margin.short_buy ?? "未提供"}`], ["融資使用率", `${margin.margin_utilization_rate_pct ?? "未提供"}%`], ["融券使用率", `${margin.short_utilization_rate_pct ?? "未提供"}%`], ["官方註記", margin.note || "無"]]);
   const ownership = record.sources.ownership_distribution?.payload;
   if (ownership) {
-    const large = ownership.tiers.find(tier => tier.tier === 17);
+    const large = ownership.tiers.find(tier => tier.tier === 15);
     card(`集保持股分級｜${ownership.snapshot_date}（每週）`, [["持股 1,000 張以上人數", large?.holders ?? "未提供"], ["持股 1,000 張以上股數", large?.shares ?? "未提供"], ["占集保比例", large ? `${large.custody_pct}%` : "未提供"]]);
   }
   if (!output.childElementCount) {
