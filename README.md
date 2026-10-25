@@ -71,6 +71,19 @@ mark-to-market drawdown; see ADR 0002.
 
 For a supplied JSON dataset/spec, run `tradingagents-research screen --data universe.json --spec screen.json --as-of YYYY-MM-DD` or `tradingagents-research backtest --data 2330.json --strategy strategy.json`. Inputs must be verified RAW `PriceSeries`; the command does not download market data.
 
+### Official weekly ownership distribution
+
+`TDCCOwnershipAdapter` reads the official TDCC Open Data 1-5 CSV and emits
+`OWNERSHIP_DISTRIBUTION` evidence with the source snapshot date and all reported
+holding tiers. TDCC defines this as a weekly end-of-last-business-day snapshot;
+it must not be carried forward as daily evidence. The endpoint serves the latest
+file, so the adapter is `LATEST_ONLY` and cannot reconstruct past point-in-time
+data. Archive each raw response for historical research. The adapter rejects
+unknown CSV schemas and emits `RAW` evidence pending the existing verification
+flow. The reference stock-chips page is a generated static snapshot; its ranks
+and weights are not treated as authoritative evidence. The source adapter does
+not yet connect institutional-flow or margin-balance feeds.
+
 ## Prospective capture and health
 
 - `.github/workflows/pit-capture.yml`: scheduled daily **19:17 Asia/Taipei** (`17 11 * * *` UTC), best-effort; stores real SUCCESS/ERROR receipts on isolated `pit-capture` branch. Verify actual run, branch SHA and receipts before claiming operational success. Empty official `[]` is **not** no-action proof.
